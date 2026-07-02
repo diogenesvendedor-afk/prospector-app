@@ -23,7 +23,6 @@
     --teal:#2BD4C4;
     --danger:#FF4D4D;
     --success:#4ADE80;
-    --sheet-h: 42vh;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%; margin:0; overflow:hidden; background:var(--void); color:var(--text);
@@ -33,73 +32,100 @@
 
   #map{position:fixed; inset:0; width:100%; height:100%; filter: saturate(0.85) brightness(0.9);}
 
-  /* ---------- TOP BAR ---------- */
+  /* ---------- TOP BAR (fina, não bloqueia o mapa) ---------- */
   #topbar{
     position:fixed; top:0; left:0; right:0; z-index:20;
-    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 34px;
     background:linear-gradient(180deg, rgba(11,12,14,.92) 0%, rgba(11,12,14,0) 100%);
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
     pointer-events:none;
   }
   #topbar > *{pointer-events:auto;}
   .brand{display:flex; align-items:center; gap:8px;}
-  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted); flex-shrink:0;}
   .brand .dot.live{background:var(--success); box-shadow:0 0 0 0 rgba(74,222,128,.6); animation:pulse 1.8s infinite;}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55);}70%{box-shadow:0 0 0 10px rgba(74,222,128,0);}100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}}
-  .brand-text{font-size:13px; color:var(--muted); font-weight:600;}
+  .brand-text{font-size:12.5px; color:var(--muted); font-weight:600;}
   .brand-text b{color:var(--text); font-weight:600;}
 
   .icon-btn{
     width:40px; height:40px; border-radius:12px; background:var(--panel);
     border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
-    color:var(--text); font-size:18px; cursor:pointer;
+    color:var(--text); font-size:18px; cursor:pointer; flex-shrink:0;
   }
   .icon-btn:active{background:var(--panel-raised);}
 
-  /* ---------- STAT CHIPS (HUD style) ---------- */
+  /* ---------- HUD compacto, não interativo, some quando sem dados ---------- */
   #hud{
-    position:fixed; top:62px; left:14px; right:14px; z-index:19;
+    position:fixed; top:58px; left:12px; right:12px; z-index:19;
     display:flex; gap:8px; pointer-events:none;
   }
   .chip{
     background:rgba(22,24,27,.88); border:1px solid var(--line); border-radius:10px;
-    padding:7px 10px; backdrop-filter:blur(6px);
+    padding:6px 10px; backdrop-filter:blur(6px);
   }
-  .chip .v{font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:500; color:var(--accent); line-height:1;}
-  .chip .l{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:3px;}
+  .chip .v{font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:500; color:var(--accent); line-height:1;}
+  .chip .l{font-size:8.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:3px;}
 
-  /* ---------- FAB cluster ---------- */
-  #fabs{position:fixed; right:14px; bottom:calc(var(--sheet-h) + 18px); z-index:21; display:flex; flex-direction:column; gap:10px; transition:bottom .25s ease;}
+  /* ---------- FAB cluster (prospecção em rota) ---------- */
+  #fabs{position:fixed; right:14px; bottom:calc(20px + env(safe-area-inset-bottom)); z-index:21; display:flex; flex-direction:column; gap:10px;}
   .fab{
-    width:50px; height:50px; border-radius:50%; background:var(--panel-raised);
-    border:1px solid var(--line); color:var(--text); font-size:20px;
+    width:52px; height:52px; border-radius:50%; background:var(--panel-raised);
+    border:1px solid var(--line); color:var(--text); font-size:13px; font-weight:700;
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     box-shadow:0 4px 14px rgba(0,0,0,.4);
   }
-  .fab.primary{background:var(--accent); border-color:var(--accent); color:#1a0e00;}
+  .fab.primary{background:var(--accent); border-color:var(--accent); color:#1a0e00; font-size:20px;}
   .fab.on{background:var(--success); border-color:var(--success); color:#062b13;}
 
-  /* ---------- BOTTOM SHEET ---------- */
-  #sheet{
-    position:fixed; left:0; right:0; bottom:0; z-index:22;
-    height:var(--sheet-h); background:var(--panel);
-    border-top:1px solid var(--line); border-radius:18px 18px 0 0;
+  /* ---------- DRAWER (menu lateral) ---------- */
+  #drawer-overlay{
+    position:fixed; inset:0; z-index:30; background:rgba(0,0,0,.5);
+    display:none; opacity:0; transition:opacity .2s ease;
+  }
+  #drawer-overlay.show{display:block; opacity:1;}
+  #drawer{
+    position:fixed; top:0; left:0; bottom:0; z-index:31; width:78%; max-width:300px;
+    background:var(--panel); border-right:1px solid var(--line);
+    transform:translateX(-100%); transition:transform .25s ease;
+    padding: max(18px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
+    display:flex; flex-direction:column;
+  }
+  #drawer.show{transform:translateX(0);}
+  .drawer-brand{padding:4px 20px 18px; border-bottom:1px solid var(--line); margin-bottom:8px;}
+  .drawer-brand .display{font-size:24px; color:var(--accent); margin:0;}
+  .drawer-brand .sub{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .drawer-item{
+    display:flex; align-items:center; gap:12px; padding:13px 20px; cursor:pointer;
+    font-size:14.5px; font-weight:500; color:var(--text); position:relative;
+  }
+  .drawer-item:active{background:var(--panel-raised);}
+  .drawer-item .ic{width:22px; text-align:center; font-size:17px; opacity:.85;}
+  .drawer-item .badge{
+    margin-left:auto; background:var(--accent); color:#1a0e00; font-size:10px;
+    border-radius:8px; padding:2px 6px; font-weight:700;
+  }
+  .drawer-sep{height:1px; background:var(--line); margin:10px 0;}
+  .drawer-footer{margin-top:auto; padding:14px 20px 0; font-size:10.5px; color:#5a5f66; border-top:1px solid var(--line);}
+
+  /* ---------- PAINEL (abre por cima do mapa, só quando chamado pelo menu) ---------- */
+  #panel-overlay{
+    position:fixed; inset:0; z-index:25; background:rgba(0,0,0,.35);
+    display:none; align-items:flex-end;
+  }
+  #panel-overlay.show{display:flex;}
+  #panel{
+    width:100%; max-height:82vh; background:var(--panel);
+    border-radius:18px 18px 0 0; border-top:1px solid var(--line);
     display:flex; flex-direction:column;
     box-shadow:0 -8px 24px rgba(0,0,0,.45);
-    transition: height .25s ease;
   }
-  #sheet.collapsed{height:64px;}
-  .grabber{width:36px; height:4px; border-radius:3px; background:var(--line); margin:9px auto 4px;}
-  #tabs{display:flex; gap:4px; padding:6px 12px 10px; border-bottom:1px solid var(--line);}
-  .tab{flex:1; text-align:center; padding:9px 0; border-radius:9px; font-size:12px; font-weight:600;
-    text-transform:uppercase; letter-spacing:.04em; color:var(--muted); cursor:pointer; position:relative;}
-  .tab.active{background:var(--panel-raised); color:var(--text);}
-  .tab .badge{position:absolute; top:3px; right:10px; background:var(--accent); color:#1a0e00; font-size:9px;
-    border-radius:8px; padding:1px 5px; font-weight:700;}
-
-  #sheet-body{flex:1; overflow-y:auto; padding:10px 14px 24px; -webkit-overflow-scrolling:touch;}
-  .panel{display:none;}
-  .panel.active{display:block;}
+  .grabber{width:36px; height:4px; border-radius:3px; background:var(--line); margin:9px auto 2px;}
+  #panel-head{display:flex; align-items:center; justify-content:space-between; padding:8px 16px 10px; border-bottom:1px solid var(--line);}
+  #panel-head h2{margin:0; font-size:20px;}
+  #panel-body{flex:1; overflow-y:auto; padding:14px 16px calc(20px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling:touch;}
+  .panel-content{display:none;}
+  .panel-content.active{display:block;}
 
   .row{display:flex; gap:8px;}
   .field{flex:1; margin-bottom:10px;}
@@ -118,6 +144,15 @@
   .btn-accent{background:var(--accent); color:#1a0e00;}
   .btn-ghost{background:var(--panel-raised); color:var(--text); border:1px solid var(--line);}
   .btn-danger{background:rgba(255,77,77,.12); color:var(--danger); border:1px solid rgba(255,77,77,.3);}
+  .btn-teal{background:var(--teal); color:#062b26;}
+
+  /* chips de nicho (prospecção manual) */
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:12px;}
+  .niche-chip{
+    padding:8px 13px; border-radius:20px; background:var(--panel-raised); border:1px solid var(--line);
+    font-size:12.5px; color:var(--muted); cursor:pointer;
+  }
+  .niche-chip.selected{background:var(--accent); border-color:var(--accent); color:#1a0e00; font-weight:600;}
 
   /* lead list */
   .lead-card{
@@ -134,8 +169,34 @@
   .status-descartado{background:rgba(139,144,151,.15); color:var(--muted);}
 
   .empty-state{text-align:center; padding:30px 10px; color:var(--muted); font-size:13px;}
+  .hint{font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5;}
 
-  /* modal */
+  #toast{
+    position:fixed; bottom:calc(90px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:9px 16px; border-radius:20px; font-size:12.5px; z-index:50; opacity:0;
+    transition:opacity .25s; pointer-events:none; white-space:nowrap; max-width:88vw; overflow:hidden; text-overflow:ellipsis;
+  }
+  #toast.show{opacity:1;}
+
+  /* ---------- tela de erro do mapa (cobre a caixinha nativa do Google) ---------- */
+  #map-error-banner{
+    display:none; position:fixed; inset:0; z-index:15; background:var(--void);
+    padding:max(70px, calc(env(safe-area-inset-top) + 60px)) 22px 24px; overflow-y:auto;
+  }
+  #map-error-banner .mb-icon{font-size:34px; color:var(--accent); margin-bottom:6px;}
+  #map-error-banner h2{font-size:26px; margin:0 0 8px; color:var(--text);}
+  #map-error-banner .mb-text{color:var(--muted); font-size:13.5px; line-height:1.5; margin:0 0 14px;}
+  #map-error-banner .mb-list{margin:0 0 20px; padding-left:20px; color:var(--text); font-size:13px; line-height:1.7;}
+  #map-error-banner .mb-list li{margin-bottom:8px;}
+  #map-error-banner .mb-list b{color:var(--accent);}
+
+  #onboarding{position:fixed; inset:0; background:var(--void); z-index:60; padding:24px; overflow-y:auto;}
+  #onboarding h1{font-size:30px; margin:18px 0 4px; color:var(--accent);}
+  #onboarding p{color:var(--muted); font-size:13.5px; line-height:1.5; margin:0 0 18px;}
+  #onboarding .field{margin-bottom:14px;}
+
+  /* modal lead */
   #modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:40; display:none; align-items:flex-end;}
   #modal{
     width:100%; max-height:88vh; overflow-y:auto; background:var(--panel);
@@ -144,27 +205,31 @@
   }
   #modal h2{margin:2px 0 14px; font-size:22px;}
 
-  #toast{
-    position:fixed; bottom:calc(var(--sheet-h) + 14px); left:50%; transform:translateX(-50%);
-    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
-    padding:9px 16px; border-radius:20px; font-size:12.5px; z-index:50; opacity:0;
-    transition:opacity .25s; pointer-events:none; white-space:nowrap;
-  }
-  #toast.show{opacity:1;}
-
-  #onboarding{position:fixed; inset:0; background:var(--void); z-index:60; padding:24px; overflow-y:auto;}
-  #onboarding h1{font-size:30px; margin:18px 0 4px; color:var(--accent);}
-  #onboarding p{color:var(--muted); font-size:13.5px; line-height:1.5; margin:0 0 18px;}
-  #onboarding .field{margin-bottom:14px;}
-
-  .scan-dot{position:relative;}
+  #modal-nota-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:40; display:none; align-items:flex-end;}
+  #modal-nota{width:100%; background:var(--panel); border-radius:18px 18px 0 0; padding:16px 16px calc(20px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);}
 </style>
 </head>
 <body>
 
 <div id="map"></div>
 
-<!-- ===== ONBOARDING / CONFIGURAÇÃO ===== -->
+<!-- ===== TELA DE ERRO DO MAPA (substitui a caixinha confusa do Google) ===== -->
+<div id="map-error-banner">
+  <div class="mb-icon">⚠</div>
+  <h2 class="display">O mapa não carregou</h2>
+  <p class="mb-text">O Google recusou a chave da API configurada. É sempre um destes 4 motivos —
+    confira na ordem:</p>
+  <ol class="mb-list">
+    <li><b>Chave errada ou com espaço</b> — reabra Configurações e cole a chave de novo, sem espaços antes/depois.</li>
+    <li><b>Referenciador HTTP não corresponde</b> — no Google Cloud Console, a restrição da chave precisa ser exatamente a URL do seu site + <span class="mono">/*</span> no final.</li>
+    <li><b>API não ativada</b> — confira se Maps JavaScript API, Places API, Directions API e Geocoding API estão todas ativadas.</li>
+    <li><b>Faturamento não vinculado</b> — o projeto no Cloud Console precisa ter um cartão cadastrado, mesmo usando só a cota gratuita.</li>
+  </ol>
+  <button class="btn btn-accent" onclick="abrirConfig()">Abrir configurações</button>
+  <button class="btn btn-ghost" onclick="location.reload()" style="margin-top:8px;">Tentar de novo</button>
+</div>
+
+<!-- ===== ONBOARDING ===== -->
 <div id="onboarding">
   <h1 class="display">Prospector</h1>
   <p>Configure uma vez. Sua chave do Google Maps e a URL do backend (Apps Script) ficam salvas só neste aparelho.</p>
@@ -186,19 +251,19 @@
     <textarea id="cfg-niches" placeholder="metalúrgica, serralheria, usinagem, caldeiraria, indústria metal mecânica">metalúrgica, serralheria, usinagem, caldeiraria, indústria metal mecânica</textarea>
   </div>
   <button class="btn btn-accent" onclick="salvarConfig()">Salvar e começar</button>
-  <p style="margin-top:14px; font-size:11.5px;">Você pode alterar isso depois no ícone de engrenagem (⚙) no topo do app.</p>
+  <p style="margin-top:14px; font-size:11.5px;">Você pode alterar isso depois no menu ☰ → Configurações.</p>
 </div>
 
 <!-- ===== TOP BAR ===== -->
 <div id="topbar">
-  <div class="brand">
-    <span class="dot" id="live-dot"></span>
-    <span class="brand-text"><b id="vendedor-nome">Vendedor</b> · <span id="status-text">parado</span></span>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div class="icon-btn" onclick="abrirDrawer()">☰</div>
+    <div class="brand">
+      <span class="dot" id="live-dot"></span>
+      <span class="brand-text"><b id="vendedor-nome">Vendedor</b> · <span id="status-text">parado</span></span>
+    </div>
   </div>
-  <div style="display:flex; gap:8px;">
-    <div class="icon-btn" onclick="abrirConfig()">⚙</div>
-    <div class="icon-btn" onclick="centralizarNaPosicao()">⌖</div>
-  </div>
+  <div class="icon-btn" onclick="centralizarNaPosicao()">⌖</div>
 </div>
 
 <div id="hud">
@@ -208,50 +273,92 @@
 </div>
 
 <div id="fabs">
-  <div class="fab" id="fab-radius" title="Raio de busca" onclick="cicleRadius()">300m</div>
+  <div class="fab" id="fab-radius" title="Raio de prospecção em rota" onclick="cicleRadius()">2km</div>
   <div class="fab primary" id="fab-prospect" onclick="toggleProspeccao()">▶</div>
 </div>
 
-<!-- ===== BOTTOM SHEET ===== -->
-<div id="sheet">
-  <div class="grabber" onclick="toggleSheet()"></div>
-  <div id="tabs">
-    <div class="tab active" data-tab="rota" onclick="trocarTab('rota')">Rota</div>
-    <div class="tab" data-tab="leads" onclick="trocarTab('leads')">Leads<span class="badge" id="badge-leads" style="display:none;">0</span></div>
-    <div class="tab" data-tab="agenda" onclick="trocarTab('agenda')">Agenda</div>
+<!-- ===== DRAWER (MENU LATERAL) ===== -->
+<div id="drawer-overlay" onclick="fecharDrawer()"></div>
+<div id="drawer">
+  <div class="drawer-brand">
+    <div class="display">Prospector</div>
+    <div class="sub" id="drawer-vendedor">Diogenes Almeida Representações</div>
   </div>
-  <div id="sheet-body">
+  <div class="drawer-item" onclick="abrirPainel('rota')"><span class="ic">🧭</span> Rota</div>
+  <div class="drawer-item" onclick="abrirPainel('prospeccao')"><span class="ic">🔍</span> Área de prospecção</div>
+  <div class="drawer-item" onclick="abrirPainel('leads')"><span class="ic">📋</span> Leads <span class="badge" id="drawer-badge-leads" style="display:none;">0</span></div>
+  <div class="drawer-item" onclick="abrirPainel('agenda')"><span class="ic">🗒</span> Agenda</div>
+  <div class="drawer-sep"></div>
+  <div class="drawer-item" onclick="exportarCSV()"><span class="ic">⬇</span> Exportar leads (CSV)</div>
+  <div class="drawer-item" onclick="forcarSincronizacao()"><span class="ic">⟳</span> Sincronizar agora</div>
+  <div class="drawer-sep"></div>
+  <div class="drawer-item" onclick="abrirConfig()"><span class="ic">⚙</span> Configurações</div>
+  <div class="drawer-footer">Prospector v2 · dados salvos na sua planilha Google Sheets</div>
+</div>
 
-    <!-- ROTA -->
-    <div class="panel active" id="panel-rota">
-      <div class="field">
-        <label>Partida</label>
-        <input id="rota-origem" placeholder="Usar minha localização atual">
+<!-- ===== PAINEL GENÉRICO ===== -->
+<div id="panel-overlay" onclick="fecharPainelSeClicarFora(event)">
+  <div id="panel">
+    <div class="grabber"></div>
+    <div id="panel-head"><h2 id="panel-title">Painel</h2><div class="icon-btn" onclick="fecharPainel()">✕</div></div>
+    <div id="panel-body">
+
+      <!-- ROTA -->
+      <div class="panel-content" id="panel-rota">
+        <div class="field">
+          <label>Partida</label>
+          <input id="rota-origem" placeholder="Usar minha localização atual">
+        </div>
+        <div class="field">
+          <label>Paradas (separe múltiplos endereços com ; )</label>
+          <textarea id="rota-paradas" placeholder="Cliente A, Blumenau; Cliente B, Gaspar; Cliente C, Indaial"></textarea>
+        </div>
+        <button class="btn btn-accent" onclick="calcularRota()">Otimizar rota</button>
+        <div style="height:8px;"></div>
+        <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
+        <p class="hint">Ao iniciar a prospecção (botão ▶ no mapa), o app varre automaticamente um raio de
+          <b id="hint-radius">2 km</b> ao redor da sua posição enquanto você dirige, e adiciona empresas
+          compatíveis com seu segmento na aba <b>Leads</b> — em segundo plano, sem precisar abrir este menu.</p>
       </div>
-      <div class="field">
-        <label>Paradas (separe múltiplos endereços com ; )</label>
-        <textarea id="rota-paradas" placeholder="Cliente A, Blumenau; Cliente B, Gaspar; Cliente C, Indaial"></textarea>
+
+      <!-- ÁREA DE PROSPECÇÃO (busca manual, parado ou em movimento) -->
+      <div class="panel-content" id="panel-prospeccao">
+        <p class="hint" style="margin-top:0;">Escolha um nicho e busque empresas ao redor do centro do mapa —
+          funciona parado ou em movimento, sem precisar estar em rota.</p>
+        <div class="field"><label>Nicho</label></div>
+        <div class="chips" id="prospeccao-chips"></div>
+        <div class="field">
+          <label>Ou busque por outro termo</label>
+          <input id="prospeccao-termo" placeholder="ex: fundição, tornearia, indústria têxtil">
+        </div>
+        <div class="field">
+          <label>Raio de busca</label>
+          <select id="prospeccao-raio">
+            <option value="500">500 m</option>
+            <option value="1000">1 km</option>
+            <option value="1500" selected>1,5 km</option>
+            <option value="2000">2 km</option>
+            <option value="3000">3 km</option>
+            <option value="5000">5 km</option>
+          </select>
+        </div>
+        <button class="btn btn-teal" onclick="buscarManual()">Buscar neste ponto do mapa</button>
+        <p class="hint">Dica: arraste o mapa até a região que quer varrer antes de tocar em buscar — a busca
+          é feita a partir do centro da tela, não da sua posição em tempo real.</p>
       </div>
-      <button class="btn btn-accent" onclick="calcularRota()">Otimizar rota</button>
-      <div style="height:8px;"></div>
-      <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
-      <p style="font-size:11.5px; color:var(--muted); margin-top:12px;">
-        Ao iniciar a prospecção (botão ▶ no mapa), o app varre automaticamente os arredores da sua posição
-        enquanto você dirige, e adiciona empresas compatíveis com seu segmento na aba <b>Leads</b>.
-      </p>
-    </div>
 
-    <!-- LEADS -->
-    <div class="panel" id="panel-leads">
-      <div id="leads-list"><div class="empty-state">Nenhum lead ainda. Inicie a prospecção no mapa.</div></div>
-    </div>
+      <!-- LEADS -->
+      <div class="panel-content" id="panel-leads">
+        <div id="leads-list"><div class="empty-state">Nenhum lead ainda. Use a prospecção em rota ou a busca manual.</div></div>
+      </div>
 
-    <!-- AGENDA -->
-    <div class="panel" id="panel-agenda">
-      <button class="btn btn-accent" onclick="abrirNovaNota()" style="margin-bottom:10px;">+ Nova anotação</button>
-      <div id="agenda-list"><div class="empty-state">Nenhuma anotação para hoje.</div></div>
-    </div>
+      <!-- AGENDA -->
+      <div class="panel-content" id="panel-agenda">
+        <button class="btn btn-accent" onclick="abrirNovaNota()" style="margin-bottom:10px;">+ Nova anotação</button>
+        <div id="agenda-list"><div class="empty-state">Nenhuma anotação para hoje.</div></div>
+      </div>
 
+    </div>
   </div>
 </div>
 
@@ -283,9 +390,8 @@
 </div>
 
 <!-- ===== MODAL NOTA ===== -->
-<div id="modal-nota-overlay" class="modal-overlay-style" onclick="fecharNotaSeClicarFora(event)"
-     style="position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:40; display:none; align-items:flex-end;">
-  <div style="width:100%; background:var(--panel); border-radius:18px 18px 0 0; padding:16px 16px calc(20px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);">
+<div id="modal-nota-overlay" onclick="fecharNotaSeClicarFora(event)">
+  <div id="modal-nota">
     <div class="grabber"></div>
     <h2 style="margin:2px 0 14px; font-size:22px;">Nova anotação</h2>
     <div class="field"><label>Título</label><input id="n-titulo" placeholder="Ligar para fulano / revisar proposta..."></div>
@@ -302,18 +408,20 @@ let CONFIG = JSON.parse(localStorage.getItem('prospector_config') || 'null');
 let map, posMarker, accuracyCircle, directionsService, directionsRenderer, placesService;
 let watchId = null;
 let prospeccaoAtiva = false;
-let raioBusca = 300; // metros
-const RAIOS = [200, 300, 500, 800];
+let raioBusca = 2000; // metros — raio de prospecção automática em rota (ampliado conforme solicitado)
+const RAIOS = [500, 1000, 1500, 2000, 3000];
 let leadsCache = JSON.parse(localStorage.getItem('prospector_leads_cache') || '[]');
 let placeIdsVistos = new Set(leadsCache.map(l => l.place_id).filter(Boolean));
 let filaOffline = JSON.parse(localStorage.getItem('prospector_fila_offline') || '[]');
 let ultimaPosicaoBusca = null;
 let agendaCache = [];
+let nicheSelecionado = null;
 
 /* ============================================================
    ONBOARDING / CONFIG
    ============================================================ */
 function abrirConfig(){
+  fecharDrawer();
   document.getElementById('onboarding').style.display = 'block';
   if(CONFIG){
     document.getElementById('cfg-apikey').value = CONFIG.apiKey || '';
@@ -336,26 +444,74 @@ function salvarConfig(){
   CONFIG = { apiKey, backendUrl, vendedor, niches };
   localStorage.setItem('prospector_config', JSON.stringify(CONFIG));
   document.getElementById('vendedor-nome').textContent = vendedor;
+  document.getElementById('drawer-vendedor').textContent = vendedor;
   document.getElementById('onboarding').style.display = 'none';
+  montarChipsNicho();
   carregarGoogleMaps();
 }
 
 if(CONFIG){
   document.getElementById('vendedor-nome').textContent = CONFIG.vendedor || 'Vendedor';
+  document.getElementById('drawer-vendedor').textContent = CONFIG.vendedor || 'Vendedor';
   document.getElementById('onboarding').style.display = 'none';
 }
 
 /* ============================================================
-   CARREGAMENTO DO GOOGLE MAPS (dinâmico, após termos a chave)
+   DRAWER (MENU LATERAL)
+   ============================================================ */
+function abrirDrawer(){
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('drawer-overlay').classList.add('show');
+}
+function fecharDrawer(){
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('drawer-overlay').classList.remove('show');
+}
+
+/* ============================================================
+   PAINEL GENÉRICO (aberto via menu)
+   ============================================================ */
+const TITULOS_PAINEL = { rota:'Rota', prospeccao:'Área de prospecção', leads:'Leads', agenda:'Agenda' };
+function abrirPainel(nome){
+  fecharDrawer();
+  document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + nome).classList.add('active');
+  document.getElementById('panel-title').textContent = TITULOS_PAINEL[nome] || '';
+  document.getElementById('panel-overlay').classList.add('show');
+}
+function fecharPainel(){
+  document.getElementById('panel-overlay').classList.remove('show');
+}
+function fecharPainelSeClicarFora(ev){
+  if(ev.target.id === 'panel-overlay') fecharPainel();
+}
+
+/* ============================================================
+   CARREGAMENTO DO GOOGLE MAPS
    ============================================================ */
 function carregarGoogleMaps(){
+  document.getElementById('map-error-banner').style.display = 'none';
   if(window.google && window.google.maps){ initMap(); return; }
   const script = document.createElement('script');
   script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.apiKey}&libraries=places&callback=initMap`;
   script.async = true;
+  script.onerror = () => mostrarErroMapa();
   document.head.appendChild(script);
 }
 window.initMap = initMap;
+
+/* O Google chama esta função global sempre que a chave é inválida, o
+   referenciador não bate, o faturamento não está ativo ou a API não foi
+   ativada — em vez de deixar a caixinha pequena e confusa do Google
+   aparecer por cima da nossa interface, escondemos tudo e mostramos
+   nossa própria tela de erro, clara e legível. */
+window.gm_authFailure = function(){
+  mostrarErroMapa();
+};
+
+function mostrarErroMapa(){
+  document.getElementById('map-error-banner').style.display = 'block';
+}
 
 function initMap(){
   const centro = { lat: -26.9194, lng: -49.0661 }; // Blumenau/SC como fallback
@@ -374,6 +530,9 @@ function initMap(){
   });
   placesService = new google.maps.places.PlacesService(map);
 
+  document.getElementById('fab-radius').textContent = formatarRaio(raioBusca);
+  document.getElementById('hint-radius').textContent = formatarRaio(raioBusca);
+
   renderLeadsNoMapa();
   iniciarRastreamento();
   carregarLeadsDoBackend();
@@ -382,7 +541,6 @@ function initMap(){
   setInterval(tentarReenviarFilaOffline, 20000);
 }
 
-/* estilo escuro industrial para o mapa, combinando com o app */
 const MAP_STYLE_DARK = [
   {elementType:"geometry", stylers:[{color:"#15171a"}]},
   {elementType:"labels.text.stroke", stylers:[{color:"#15171a"}]},
@@ -438,7 +596,7 @@ function onPosicaoAtualizada(pos){
     const distUltimaBusca = ultimaPosicaoBusca ? distanciaMetros(ultimaPosicaoBusca, latLng) : Infinity;
     if(distUltimaBusca > raioBusca * 0.6){
       ultimaPosicaoBusca = latLng;
-      buscarEmpresasProximas(latLng);
+      buscarEmpresasProximas(latLng, raioBusca);
     }
   }
 }
@@ -456,8 +614,12 @@ function distanciaMetros(a, b){
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+function formatarRaio(m){
+  return m >= 1000 ? (m/1000).toFixed(m % 1000 === 0 ? 0 : 1) + 'km' : m + 'm';
+}
+
 /* ============================================================
-   PROSPECÇÃO AO VIVO (Places Nearby Search ao longo da rota)
+   PROSPECÇÃO AO VIVO (em rota)
    ============================================================ */
 function toggleProspeccao(){
   prospeccaoAtiva = !prospeccaoAtiva;
@@ -467,8 +629,8 @@ function toggleProspeccao(){
   if(prospeccaoAtiva){
     fab.classList.add('on'); fab.textContent = '■';
     dot.classList.add('live'); statusText.textContent = 'prospectando em rota';
-    if(posMarker) buscarEmpresasProximas(posMarker.getPosition().toJSON());
-    mostrarToast('Prospecção ativada — buscando empresas a cada ' + raioBusca + 'm');
+    if(posMarker) buscarEmpresasProximas(posMarker.getPosition().toJSON(), raioBusca);
+    mostrarToast('Prospecção ativada — raio de ' + formatarRaio(raioBusca));
   } else {
     fab.classList.remove('on'); fab.textContent = '▶';
     dot.classList.remove('live'); statusText.textContent = 'parado';
@@ -479,26 +641,30 @@ function toggleProspeccao(){
 function cicleRadius(){
   const idx = RAIOS.indexOf(raioBusca);
   raioBusca = RAIOS[(idx + 1) % RAIOS.length];
-  document.getElementById('fab-radius').textContent = raioBusca + 'm';
+  document.getElementById('fab-radius').textContent = formatarRaio(raioBusca);
+  document.getElementById('hint-radius').textContent = formatarRaio(raioBusca);
 }
 
-function buscarEmpresasProximas(centro){
-  if(!CONFIG.niches || CONFIG.niches.length === 0) return;
-  const palavra = CONFIG.niches[Math.floor(Math.random() * CONFIG.niches.length)];
+/* busca genérica: usada tanto pela prospecção em rota quanto pela busca manual */
+function buscarEmpresasProximas(centro, raio, keyword){
+  if(!CONFIG.niches || (!keyword && CONFIG.niches.length === 0)) return;
+  const palavra = keyword || CONFIG.niches[Math.floor(Math.random() * CONFIG.niches.length)];
 
-  const request = {
-    location: centro,
-    radius: raioBusca,
-    keyword: palavra
-  };
+  const request = { location: centro, radius: raio || raioBusca, keyword: palavra };
 
   placesService.nearbySearch(request, (results, status) => {
-    if(status !== google.maps.places.PlacesServiceStatus.OK || !results) return;
+    if(status !== google.maps.places.PlacesServiceStatus.OK || !results){
+      if(keyword) mostrarToast('Nenhuma empresa encontrada para "' + palavra + '" nesse raio');
+      return;
+    }
+    let novos = 0;
     results.forEach(lugar => {
       if(placeIdsVistos.has(lugar.place_id)) return;
       placeIdsVistos.add(lugar.place_id);
+      novos++;
       detalharEAdicionarLead(lugar.place_id, palavra);
     });
+    if(keyword && novos === 0) mostrarToast('Nenhum lead novo — essas empresas já estavam na sua lista');
   });
 }
 
@@ -537,6 +703,36 @@ function detalharEAdicionarLead(placeId, segmento){
 }
 
 /* ============================================================
+   ÁREA DE PROSPECÇÃO MANUAL (parado ou em movimento)
+   ============================================================ */
+function montarChipsNicho(){
+  const cont = document.getElementById('prospeccao-chips');
+  if(!CONFIG || !CONFIG.niches){ cont.innerHTML = ''; return; }
+  cont.innerHTML = CONFIG.niches.map(n => `
+    <div class="niche-chip" data-niche="${escapeHtml(n)}" onclick="selecionarNicho(this)">${escapeHtml(n)}</div>
+  `).join('');
+}
+
+function selecionarNicho(el){
+  document.querySelectorAll('.niche-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  nicheSelecionado = el.dataset.niche;
+  document.getElementById('prospeccao-termo').value = '';
+}
+
+function buscarManual(){
+  if(!map){ mostrarToast('Aguardando o mapa carregar...'); return; }
+  const termoCustom = document.getElementById('prospeccao-termo').value.trim();
+  const termo = termoCustom || nicheSelecionado;
+  if(!termo){ mostrarToast('Escolha um nicho ou digite um termo de busca'); return; }
+
+  const raio = Number(document.getElementById('prospeccao-raio').value);
+  const centro = map.getCenter().toJSON();
+  mostrarToast('Buscando "' + termo + '" em ' + formatarRaio(raio) + '...');
+  buscarEmpresasProximas(centro, raio, termo);
+}
+
+/* ============================================================
    ROTA OTIMIZADA
    ============================================================ */
 function calcularRota(){
@@ -570,7 +766,7 @@ function calcularRota(){
     document.getElementById('hud-eta').textContent = chegada.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 
     mostrarToast('Rota otimizada: ' + enderecos.length + ' paradas');
-    toggleSheet(true);
+    fecharPainel();
   });
 }
 
@@ -583,40 +779,27 @@ function limparRota(){
 }
 
 /* ============================================================
-   UI: TABS / SHEET
+   TOAST
    ============================================================ */
-function trocarTab(nome){
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === nome));
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + nome).classList.add('active');
-  document.getElementById('sheet').classList.remove('collapsed');
-}
-
-function toggleSheet(forcarAberto){
-  const sheet = document.getElementById('sheet');
-  if(forcarAberto){ sheet.classList.remove('collapsed'); return; }
-  sheet.classList.toggle('collapsed');
-}
-
 function mostrarToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 /* ============================================================
    LEADS — LISTA, MAPA, MODAL
    ============================================================ */
 function persistirLeadsCache(){
-  localStorage.setItem('prospector_leads_cache', JSON.stringify(leadsCache.slice(0, 300)));
+  localStorage.setItem('prospector_leads_cache', JSON.stringify(leadsCache.slice(0, 500)));
 }
 
 function atualizarHud(){
   document.getElementById('hud-leads').textContent = leadsCache.length;
-  const badge = document.getElementById('badge-leads');
   const novos = leadsCache.filter(l => l.status === 'novo').length;
+  const badge = document.getElementById('drawer-badge-leads');
   badge.style.display = novos > 0 ? 'inline-block' : 'none';
   badge.textContent = novos;
 }
@@ -624,7 +807,7 @@ function atualizarHud(){
 function renderLeadsLista(){
   const cont = document.getElementById('leads-list');
   if(leadsCache.length === 0){
-    cont.innerHTML = '<div class="empty-state">Nenhum lead ainda. Inicie a prospecção no mapa.</div>';
+    cont.innerHTML = '<div class="empty-state">Nenhum lead ainda. Use a prospecção em rota ou a busca manual.</div>';
     return;
   }
   cont.innerHTML = leadsCache.map((l, i) => `
@@ -698,6 +881,41 @@ function escapeHtml(s){
 }
 
 /* ============================================================
+   EXPORTAR LEADS PARA PLANILHA (CSV) — funciona parado ou em rota,
+   mesmo sem internet, pois usa os dados já salvos neste aparelho
+   ============================================================ */
+function exportarCSV(){
+  fecharDrawer();
+  if(leadsCache.length === 0){ mostrarToast('Não há leads para exportar ainda'); return; }
+
+  const colunas = ['empresa','cnpj','cnae','endereco','telefone','email','latitude','longitude','status','segmento','observacoes','vendedor','data_captura'];
+  const cabecalho = colunas.join(';');
+
+  const linhas = leadsCache.map(l => colunas.map(c => {
+    let v = (l[c] !== undefined && l[c] !== null) ? String(l[c]) : '';
+    v = v.replace(/"/g, '""');
+    if(v.includes(';') || v.includes('"') || v.includes('\n')) v = '"' + v + '"';
+    return v;
+  }).join(';'));
+
+  const csv = '\uFEFF' + [cabecalho, ...linhas].join('\r\n'); // BOM para abrir certo em Excel/Sheets com acentos
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const agora = new Date();
+  const nomeArquivo = 'leads_prospector_' + agora.toISOString().slice(0,10) + '_' + agora.toTimeString().slice(0,5).replace(':','') + '.csv';
+  a.href = url;
+  a.download = nomeArquivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  mostrarToast(leadsCache.length + ' leads exportados: ' + nomeArquivo);
+}
+
+/* ============================================================
    AGENDA / NOTAS
    ============================================================ */
 function abrirNovaNota(){
@@ -759,12 +977,11 @@ function enviarParaBackend(action, payload){
   if(!CONFIG || !CONFIG.backendUrl) return;
   fetch(CONFIG.backendUrl, {
     method:'POST',
-    headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // evita preflight CORS no Apps Script
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
     body: JSON.stringify({ action, payload })
   }).then(r => r.json()).then(resp => {
     if(!resp.ok){ console.warn('Backend respondeu erro:', resp.erro); }
   }).catch(err => {
-    // sem internet ou backend fora — guarda na fila offline e tenta depois
     filaOffline.push({ action, payload, tentativas:0 });
     localStorage.setItem('prospector_fila_offline', JSON.stringify(filaOffline));
   });
@@ -778,6 +995,21 @@ function tentarReenviarFilaOffline(){
   localStorage.setItem('prospector_fila_offline', JSON.stringify(filaOffline));
 }
 
+function forcarSincronizacao(){
+  fecharDrawer();
+  if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
+  mostrarToast('Sincronizando...');
+  fetch(CONFIG.backendUrl + '?action=ping')
+    .then(r => r.json())
+    .then(() => {
+      tentarReenviarFilaOffline();
+      carregarLeadsDoBackend();
+      carregarAgendaDoBackend();
+      mostrarToast('Sincronizado com a planilha ✓');
+    })
+    .catch(() => mostrarToast('Sem conexão com o backend agora — dados ficam guardados neste aparelho'));
+}
+
 function carregarLeadsDoBackend(){
   if(!CONFIG || !CONFIG.backendUrl) return;
   fetch(CONFIG.backendUrl + '?action=listLeads')
@@ -785,7 +1017,6 @@ function carregarLeadsDoBackend(){
     .then(resp => {
       if(!resp.ok) return;
       resp.leads.forEach(l => { if(l.place_id) placeIdsVistos.add(l.place_id); });
-      // mescla: mantém os locais mais recentes, adiciona os que só existem no servidor
       const idsLocais = new Set(leadsCache.map(l => l.id));
       resp.leads.forEach(l => { if(!idsLocais.has(l.id)) leadsCache.push(l); });
       persistirLeadsCache();
@@ -812,6 +1043,7 @@ function carregarAgendaDoBackend(){
 if(CONFIG){
   renderLeadsLista();
   atualizarHud();
+  montarChipsNicho();
   carregarGoogleMaps();
 }
 
