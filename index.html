@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0B0C0E">
+<title>Prospector — Diogenes Almeida Representações</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0B0C0E;
+    --panel:#16181B;
+    --panel-raised:#1E2125;
+    --line:#2A2D31;
+    --text:#EDEEF0;
+    --muted:#8B9097;
+    --accent:#FF7A1A;
+    --accent-dim:#7A3D14;
+    --teal:#2BD4C4;
+    --danger:#FF4D4D;
+    --success:#4ADE80;
+    --sheet-h: 42vh;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%; margin:0; overflow:hidden; background:var(--void); color:var(--text);
+    font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased;}
+  h1,h2,h3,.display{font-family:'Barlow Condensed',sans-serif; letter-spacing:.02em; text-transform:uppercase;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  #map{position:fixed; inset:0; width:100%; height:100%; filter: saturate(0.85) brightness(0.9);}
+
+  /* ---------- TOP BAR ---------- */
+  #topbar{
+    position:fixed; top:0; left:0; right:0; z-index:20;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+    background:linear-gradient(180deg, rgba(11,12,14,.92) 0%, rgba(11,12,14,0) 100%);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    pointer-events:none;
+  }
+  #topbar > *{pointer-events:auto;}
+  .brand{display:flex; align-items:center; gap:8px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);}
+  .brand .dot.live{background:var(--success); box-shadow:0 0 0 0 rgba(74,222,128,.6); animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55);}70%{box-shadow:0 0 0 10px rgba(74,222,128,0);}100%{box-shadow:0 0 0 0 rgba(74,222,128,0);}}
+  .brand-text{font-size:13px; color:var(--muted); font-weight:600;}
+  .brand-text b{color:var(--text); font-weight:600;}
+
+  .icon-btn{
+    width:40px; height:40px; border-radius:12px; background:var(--panel);
+    border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    color:var(--text); font-size:18px; cursor:pointer;
+  }
+  .icon-btn:active{background:var(--panel-raised);}
+
+  /* ---------- STAT CHIPS (HUD style) ---------- */
+  #hud{
+    position:fixed; top:62px; left:14px; right:14px; z-index:19;
+    display:flex; gap:8px; pointer-events:none;
+  }
+  .chip{
+    background:rgba(22,24,27,.88); border:1px solid var(--line); border-radius:10px;
+    padding:7px 10px; backdrop-filter:blur(6px);
+  }
+  .chip .v{font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:500; color:var(--accent); line-height:1;}
+  .chip .l{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:3px;}
+
+  /* ---------- FAB cluster ---------- */
+  #fabs{position:fixed; right:14px; bottom:calc(var(--sheet-h) + 18px); z-index:21; display:flex; flex-direction:column; gap:10px; transition:bottom .25s ease;}
+  .fab{
+    width:50px; height:50px; border-radius:50%; background:var(--panel-raised);
+    border:1px solid var(--line); color:var(--text); font-size:20px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .fab.primary{background:var(--accent); border-color:var(--accent); color:#1a0e00;}
+  .fab.on{background:var(--success); border-color:var(--success); color:#062b13;}
+
+  /* ---------- BOTTOM SHEET ---------- */
+  #sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:22;
+    height:var(--sheet-h); background:var(--panel);
+    border-top:1px solid var(--line); border-radius:18px 18px 0 0;
+    display:flex; flex-direction:column;
+    box-shadow:0 -8px 24px rgba(0,0,0,.45);
+    transition: height .25s ease;
+  }
+  #sheet.collapsed{height:64px;}
+  .grabber{width:36px; height:4px; border-radius:3px; background:var(--line); margin:9px auto 4px;}
+  #tabs{display:flex; gap:4px; padding:6px 12px 10px; border-bottom:1px solid var(--line);}
+  .tab{flex:1; text-align:center; padding:9px 0; border-radius:9px; font-size:12px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.04em; color:var(--muted); cursor:pointer; position:relative;}
+  .tab.active{background:var(--panel-raised); color:var(--text);}
+  .tab .badge{position:absolute; top:3px; right:10px; background:var(--accent); color:#1a0e00; font-size:9px;
+    border-radius:8px; padding:1px 5px; font-weight:700;}
+
+  #sheet-body{flex:1; overflow-y:auto; padding:10px 14px 24px; -webkit-overflow-scrolling:touch;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .row{display:flex; gap:8px;}
+  .field{flex:1; margin-bottom:10px;}
+  .field label{display:block; font-size:11px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em;}
+  input,select,textarea{
+    width:100%; background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:10px 11px; font-size:14px; font-family:inherit;
+  }
+  textarea{resize:vertical; min-height:64px;}
+  input::placeholder{color:#5a5f66;}
+
+  button.btn{
+    width:100%; padding:12px; border-radius:10px; border:none; font-weight:600;
+    font-size:14px; cursor:pointer; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .btn-accent{background:var(--accent); color:#1a0e00;}
+  .btn-ghost{background:var(--panel-raised); color:var(--text); border:1px solid var(--line);}
+  .btn-danger{background:rgba(255,77,77,.12); color:var(--danger); border:1px solid rgba(255,77,77,.3);}
+
+  /* lead list */
+  .lead-card{
+    background:var(--panel-raised); border:1px solid var(--line); border-radius:12px;
+    padding:11px 12px; margin-bottom:9px; cursor:pointer;
+  }
+  .lead-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .lead-name{font-weight:600; font-size:14px;}
+  .lead-addr{font-size:12px; color:var(--muted); margin-top:2px;}
+  .status-pill{font-size:9px; padding:3px 8px; border-radius:7px; text-transform:uppercase; font-weight:700; letter-spacing:.03em; white-space:nowrap;}
+  .status-novo{background:rgba(255,122,26,.15); color:var(--accent);}
+  .status-contatado{background:rgba(43,212,196,.15); color:var(--teal);}
+  .status-qualificado{background:rgba(74,222,128,.15); color:var(--success);}
+  .status-descartado{background:rgba(139,144,151,.15); color:var(--muted);}
+
+  .empty-state{text-align:center; padding:30px 10px; color:var(--muted); font-size:13px;}
+
+  /* modal */
+  #modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:40; display:none; align-items:flex-end;}
+  #modal{
+    width:100%; max-height:88vh; overflow-y:auto; background:var(--panel);
+    border-radius:18px 18px 0 0; padding:16px 16px calc(20px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line);
+  }
+  #modal h2{margin:2px 0 14px; font-size:22px;}
+
+  #toast{
+    position:fixed; bottom:calc(var(--sheet-h) + 14px); left:50%; transform:translateX(-50%);
+    background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding:9px 16px; border-radius:20px; font-size:12.5px; z-index:50; opacity:0;
+    transition:opacity .25s; pointer-events:none; white-space:nowrap;
+  }
+  #toast.show{opacity:1;}
+
+  #onboarding{position:fixed; inset:0; background:var(--void); z-index:60; padding:24px; overflow-y:auto;}
+  #onboarding h1{font-size:30px; margin:18px 0 4px; color:var(--accent);}
+  #onboarding p{color:var(--muted); font-size:13.5px; line-height:1.5; margin:0 0 18px;}
+  #onboarding .field{margin-bottom:14px;}
+
+  .scan-dot{position:relative;}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- ===== ONBOARDING / CONFIGURAÇÃO ===== -->
+<div id="onboarding">
+  <h1 class="display">Prospector</h1>
+  <p>Configure uma vez. Sua chave do Google Maps e a URL do backend (Apps Script) ficam salvas só neste aparelho.</p>
+
+  <div class="field">
+    <label>Chave da API do Google Maps</label>
+    <input id="cfg-apikey" placeholder="AIzaSy...">
+  </div>
+  <div class="field">
+    <label>URL do Web App (Apps Script)</label>
+    <input id="cfg-backend" placeholder="https://script.google.com/macros/s/.../exec">
+  </div>
+  <div class="field">
+    <label>Seu nome (vendedor)</label>
+    <input id="cfg-vendedor" placeholder="Diogenes Almeida">
+  </div>
+  <div class="field">
+    <label>Segmento / palavras-chave de prospecção (separadas por vírgula)</label>
+    <textarea id="cfg-niches" placeholder="metalúrgica, serralheria, usinagem, caldeiraria, indústria metal mecânica">metalúrgica, serralheria, usinagem, caldeiraria, indústria metal mecânica</textarea>
+  </div>
+  <button class="btn btn-accent" onclick="salvarConfig()">Salvar e começar</button>
+  <p style="margin-top:14px; font-size:11.5px;">Você pode alterar isso depois no ícone de engrenagem (⚙) no topo do app.</p>
+</div>
+
+<!-- ===== TOP BAR ===== -->
+<div id="topbar">
+  <div class="brand">
+    <span class="dot" id="live-dot"></span>
+    <span class="brand-text"><b id="vendedor-nome">Vendedor</b> · <span id="status-text">parado</span></span>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <div class="icon-btn" onclick="abrirConfig()">⚙</div>
+    <div class="icon-btn" onclick="centralizarNaPosicao()">⌖</div>
+  </div>
+</div>
+
+<div id="hud">
+  <div class="chip"><div class="v" id="hud-leads">0</div><div class="l">Leads na rota</div></div>
+  <div class="chip"><div class="v" id="hud-dist">0 km</div><div class="l">Distância</div></div>
+  <div class="chip"><div class="v" id="hud-eta">--</div><div class="l">Chegada</div></div>
+</div>
+
+<div id="fabs">
+  <div class="fab" id="fab-radius" title="Raio de busca" onclick="cicleRadius()">300m</div>
+  <div class="fab primary" id="fab-prospect" onclick="toggleProspeccao()">▶</div>
+</div>
+
+<!-- ===== BOTTOM SHEET ===== -->
+<div id="sheet">
+  <div class="grabber" onclick="toggleSheet()"></div>
+  <div id="tabs">
+    <div class="tab active" data-tab="rota" onclick="trocarTab('rota')">Rota</div>
+    <div class="tab" data-tab="leads" onclick="trocarTab('leads')">Leads<span class="badge" id="badge-leads" style="display:none;">0</span></div>
+    <div class="tab" data-tab="agenda" onclick="trocarTab('agenda')">Agenda</div>
+  </div>
+  <div id="sheet-body">
+
+    <!-- ROTA -->
+    <div class="panel active" id="panel-rota">
+      <div class="field">
+        <label>Partida</label>
+        <input id="rota-origem" placeholder="Usar minha localização atual">
+      </div>
+      <div class="field">
+        <label>Paradas (separe múltiplos endereços com ; )</label>
+        <textarea id="rota-paradas" placeholder="Cliente A, Blumenau; Cliente B, Gaspar; Cliente C, Indaial"></textarea>
+      </div>
+      <button class="btn btn-accent" onclick="calcularRota()">Otimizar rota</button>
+      <div style="height:8px;"></div>
+      <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
+      <p style="font-size:11.5px; color:var(--muted); margin-top:12px;">
+        Ao iniciar a prospecção (botão ▶ no mapa), o app varre automaticamente os arredores da sua posição
+        enquanto você dirige, e adiciona empresas compatíveis com seu segmento na aba <b>Leads</b>.
+      </p>
+    </div>
+
+    <!-- LEADS -->
+    <div class="panel" id="panel-leads">
+      <div id="leads-list"><div class="empty-state">Nenhum lead ainda. Inicie a prospecção no mapa.</div></div>
+    </div>
+
+    <!-- AGENDA -->
+    <div class="panel" id="panel-agenda">
+      <button class="btn btn-accent" onclick="abrirNovaNota()" style="margin-bottom:10px;">+ Nova anotação</button>
+      <div id="agenda-list"><div class="empty-state">Nenhuma anotação para hoje.</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ===== MODAL LEAD ===== -->
+<div id="modal-overlay" onclick="fecharModalSeClicarFora(event)">
+  <div id="modal">
+    <div class="grabber"></div>
+    <h2 id="modal-title">Empresa</h2>
+    <div class="field"><label>Status</label>
+      <select id="m-status">
+        <option value="novo">Novo</option>
+        <option value="contatado">Contatado</option>
+        <option value="qualificado">Qualificado</option>
+        <option value="descartado">Descartado</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="field"><label>CNPJ</label><input id="m-cnpj" class="mono" placeholder="00.000.000/0000-00"></div>
+      <div class="field"><label>CNAE</label><input id="m-cnae" class="mono" placeholder="00.00-0-00"></div>
+    </div>
+    <div class="field"><label>Telefone</label><input id="m-telefone" class="mono"></div>
+    <div class="field"><label>Email</label><input id="m-email"></div>
+    <div class="field"><label>Endereço</label><input id="m-endereco" disabled></div>
+    <div class="field"><label>Observações</label><textarea id="m-obs"></textarea></div>
+    <button class="btn btn-accent" onclick="salvarLeadModal()">Salvar alterações</button>
+  </div>
+</div>
+
+<!-- ===== MODAL NOTA ===== -->
+<div id="modal-nota-overlay" class="modal-overlay-style" onclick="fecharNotaSeClicarFora(event)"
+     style="position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:40; display:none; align-items:flex-end;">
+  <div style="width:100%; background:var(--panel); border-radius:18px 18px 0 0; padding:16px 16px calc(20px + env(safe-area-inset-bottom)); border-top:1px solid var(--line);">
+    <div class="grabber"></div>
+    <h2 style="margin:2px 0 14px; font-size:22px;">Nova anotação</h2>
+    <div class="field"><label>Título</label><input id="n-titulo" placeholder="Ligar para fulano / revisar proposta..."></div>
+    <div class="field"><label>Nota</label><textarea id="n-nota"></textarea></div>
+    <button class="btn btn-accent" onclick="salvarNota()">Salvar anotação</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ESTADO GLOBAL
+   ============================================================ */
+let CONFIG = JSON.parse(localStorage.getItem('prospector_config') || 'null');
+let map, posMarker, accuracyCircle, directionsService, directionsRenderer, placesService;
+let watchId = null;
+let prospeccaoAtiva = false;
+let raioBusca = 300; // metros
+const RAIOS = [200, 300, 500, 800];
+let leadsCache = JSON.parse(localStorage.getItem('prospector_leads_cache') || '[]');
+let placeIdsVistos = new Set(leadsCache.map(l => l.place_id).filter(Boolean));
+let filaOffline = JSON.parse(localStorage.getItem('prospector_fila_offline') || '[]');
+let ultimaPosicaoBusca = null;
+let agendaCache = [];
+
+/* ============================================================
+   ONBOARDING / CONFIG
+   ============================================================ */
+function abrirConfig(){
+  document.getElementById('onboarding').style.display = 'block';
+  if(CONFIG){
+    document.getElementById('cfg-apikey').value = CONFIG.apiKey || '';
+    document.getElementById('cfg-backend').value = CONFIG.backendUrl || '';
+    document.getElementById('cfg-vendedor').value = CONFIG.vendedor || '';
+    document.getElementById('cfg-niches').value = (CONFIG.niches || []).join(', ');
+  }
+}
+
+function salvarConfig(){
+  const apiKey = document.getElementById('cfg-apikey').value.trim();
+  const backendUrl = document.getElementById('cfg-backend').value.trim();
+  const vendedor = document.getElementById('cfg-vendedor').value.trim() || 'Vendedor';
+  const niches = document.getElementById('cfg-niches').value.split(',').map(s => s.trim()).filter(Boolean);
+
+  if(!apiKey || !backendUrl){
+    mostrarToast('Preencha a chave do Maps e a URL do backend');
+    return;
+  }
+  CONFIG = { apiKey, backendUrl, vendedor, niches };
+  localStorage.setItem('prospector_config', JSON.stringify(CONFIG));
+  document.getElementById('vendedor-nome').textContent = vendedor;
+  document.getElementById('onboarding').style.display = 'none';
+  carregarGoogleMaps();
+}
+
+if(CONFIG){
+  document.getElementById('vendedor-nome').textContent = CONFIG.vendedor || 'Vendedor';
+  document.getElementById('onboarding').style.display = 'none';
+}
+
+/* ============================================================
+   CARREGAMENTO DO GOOGLE MAPS (dinâmico, após termos a chave)
+   ============================================================ */
+function carregarGoogleMaps(){
+  if(window.google && window.google.maps){ initMap(); return; }
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.apiKey}&libraries=places&callback=initMap`;
+  script.async = true;
+  document.head.appendChild(script);
+}
+window.initMap = initMap;
+
+function initMap(){
+  const centro = { lat: -26.9194, lng: -49.0661 }; // Blumenau/SC como fallback
+
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: centro,
+    zoom: 13,
+    disableDefaultUI: true,
+    styles: MAP_STYLE_DARK
+  });
+
+  directionsService = new google.maps.DirectionsService();
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map, suppressMarkers:false,
+    polylineOptions:{ strokeColor:'#FF7A1A', strokeWeight:4, strokeOpacity:0.85 }
+  });
+  placesService = new google.maps.places.PlacesService(map);
+
+  renderLeadsNoMapa();
+  iniciarRastreamento();
+  carregarLeadsDoBackend();
+  carregarAgendaDoBackend();
+  tentarReenviarFilaOffline();
+  setInterval(tentarReenviarFilaOffline, 20000);
+}
+
+/* estilo escuro industrial para o mapa, combinando com o app */
+const MAP_STYLE_DARK = [
+  {elementType:"geometry", stylers:[{color:"#15171a"}]},
+  {elementType:"labels.text.stroke", stylers:[{color:"#15171a"}]},
+  {elementType:"labels.text.fill", stylers:[{color:"#8b9097"}]},
+  {featureType:"administrative", elementType:"geometry", stylers:[{color:"#2a2d31"}]},
+  {featureType:"poi", stylers:[{visibility:"off"}]},
+  {featureType:"road", elementType:"geometry", stylers:[{color:"#202327"}]},
+  {featureType:"road", elementType:"geometry.stroke", stylers:[{color:"#15171a"}]},
+  {featureType:"road.highway", elementType:"geometry", stylers:[{color:"#2a2d31"}]},
+  {featureType:"transit", stylers:[{visibility:"off"}]},
+  {featureType:"water", elementType:"geometry", stylers:[{color:"#0d1f1d"}]}
+];
+
+/* ============================================================
+   GEOLOCALIZAÇÃO AO VIVO
+   ============================================================ */
+function iniciarRastreamento(){
+  if(!navigator.geolocation){ mostrarToast('GPS não disponível neste navegador'); return; }
+  watchId = navigator.geolocation.watchPosition(onPosicaoAtualizada, onErroPosicao, {
+    enableHighAccuracy:true, maximumAge:2000, timeout:15000
+  });
+}
+
+function onErroPosicao(err){
+  mostrarToast('Erro de GPS: ' + err.message);
+}
+
+function onPosicaoAtualizada(pos){
+  const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+  if(!posMarker){
+    posMarker = new google.maps.Marker({
+      position: latLng, map,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale:8, fillColor:'#FF7A1A', fillOpacity:1, strokeColor:'#fff', strokeWeight:2 },
+      zIndex: 999
+    });
+    map.setCenter(latLng);
+  } else {
+    posMarker.setPosition(latLng);
+  }
+
+  if(!accuracyCircle){
+    accuracyCircle = new google.maps.Circle({
+      map, center: latLng, radius: pos.coords.accuracy,
+      fillColor:'#FF7A1A', fillOpacity:0.08, strokeColor:'#FF7A1A', strokeOpacity:0.25, strokeWeight:1
+    });
+  } else {
+    accuracyCircle.setCenter(latLng);
+    accuracyCircle.setRadius(pos.coords.accuracy);
+  }
+
+  if(prospeccaoAtiva){
+    const distUltimaBusca = ultimaPosicaoBusca ? distanciaMetros(ultimaPosicaoBusca, latLng) : Infinity;
+    if(distUltimaBusca > raioBusca * 0.6){
+      ultimaPosicaoBusca = latLng;
+      buscarEmpresasProximas(latLng);
+    }
+  }
+}
+
+function centralizarNaPosicao(){
+  if(posMarker) map.panTo(posMarker.getPosition());
+}
+
+function distanciaMetros(a, b){
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI/180;
+  const dLng = (b.lng - a.lng) * Math.PI/180;
+  const lat1 = a.lat * Math.PI/180, lat2 = b.lat * Math.PI/180;
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/* ============================================================
+   PROSPECÇÃO AO VIVO (Places Nearby Search ao longo da rota)
+   ============================================================ */
+function toggleProspeccao(){
+  prospeccaoAtiva = !prospeccaoAtiva;
+  const fab = document.getElementById('fab-prospect');
+  const dot = document.getElementById('live-dot');
+  const statusText = document.getElementById('status-text');
+  if(prospeccaoAtiva){
+    fab.classList.add('on'); fab.textContent = '■';
+    dot.classList.add('live'); statusText.textContent = 'prospectando em rota';
+    if(posMarker) buscarEmpresasProximas(posMarker.getPosition().toJSON());
+    mostrarToast('Prospecção ativada — buscando empresas a cada ' + raioBusca + 'm');
+  } else {
+    fab.classList.remove('on'); fab.textContent = '▶';
+    dot.classList.remove('live'); statusText.textContent = 'parado';
+    mostrarToast('Prospecção pausada');
+  }
+}
+
+function cicleRadius(){
+  const idx = RAIOS.indexOf(raioBusca);
+  raioBusca = RAIOS[(idx + 1) % RAIOS.length];
+  document.getElementById('fab-radius').textContent = raioBusca + 'm';
+}
+
+function buscarEmpresasProximas(centro){
+  if(!CONFIG.niches || CONFIG.niches.length === 0) return;
+  const palavra = CONFIG.niches[Math.floor(Math.random() * CONFIG.niches.length)];
+
+  const request = {
+    location: centro,
+    radius: raioBusca,
+    keyword: palavra
+  };
+
+  placesService.nearbySearch(request, (results, status) => {
+    if(status !== google.maps.places.PlacesServiceStatus.OK || !results) return;
+    results.forEach(lugar => {
+      if(placeIdsVistos.has(lugar.place_id)) return;
+      placeIdsVistos.add(lugar.place_id);
+      detalharEAdicionarLead(lugar.place_id, palavra);
+    });
+  });
+}
+
+function detalharEAdicionarLead(placeId, segmento){
+  placesService.getDetails({
+    placeId,
+    fields: ['name','formatted_address','formatted_phone_number','international_phone_number','geometry','place_id']
+  }, (lugar, status) => {
+    if(status !== google.maps.places.PlacesServiceStatus.OK || !lugar) return;
+
+    const lead = {
+      id: 'local_' + placeId,
+      place_id: placeId,
+      empresa: lugar.name || '',
+      endereco: lugar.formatted_address || '',
+      telefone: lugar.formatted_phone_number || lugar.international_phone_number || '',
+      latitude: lugar.geometry?.location?.lat() || '',
+      longitude: lugar.geometry?.location?.lng() || '',
+      cnpj: '', cnae: '', email: '',
+      status: 'novo',
+      origem: 'prospeccao_automatica_rota',
+      segmento,
+      observacoes: '',
+      vendedor: CONFIG.vendedor,
+      data_captura: new Date().toISOString()
+    };
+
+    leadsCache.unshift(lead);
+    persistirLeadsCache();
+    renderLeadsLista();
+    renderLeadsNoMapa();
+    atualizarHud();
+    enviarParaBackend('addLead', lead);
+    mostrarToast('Novo lead: ' + lead.empresa);
+  });
+}
+
+/* ============================================================
+   ROTA OTIMIZADA
+   ============================================================ */
+function calcularRota(){
+  if(!posMarker){ mostrarToast('Aguardando localização GPS...'); return; }
+  const origemTexto = document.getElementById('rota-origem').value.trim();
+  const paradasTexto = document.getElementById('rota-paradas').value.trim();
+  if(!paradasTexto){ mostrarToast('Informe ao menos uma parada'); return; }
+
+  const enderecos = paradasTexto.split(';').map(s => s.trim()).filter(Boolean);
+  if(enderecos.length === 0){ mostrarToast('Informe ao menos uma parada'); return; }
+
+  const destino = enderecos[enderecos.length - 1];
+  const waypoints = enderecos.slice(0, -1).map(loc => ({ location: loc, stopover:true }));
+  const origem = origemTexto || posMarker.getPosition();
+
+  directionsService.route({
+    origin: origem,
+    destination: destino,
+    waypoints,
+    optimizeWaypoints: true,
+    travelMode: google.maps.TravelMode.DRIVING
+  }, (resultado, status) => {
+    if(status !== 'OK'){ mostrarToast('Não foi possível calcular a rota: ' + status); return; }
+    directionsRenderer.setDirections(resultado);
+
+    let distanciaTotal = 0, duracaoTotal = 0;
+    resultado.routes[0].legs.forEach(leg => { distanciaTotal += leg.distance.value; duracaoTotal += leg.duration.value; });
+
+    document.getElementById('hud-dist').textContent = (distanciaTotal/1000).toFixed(1) + ' km';
+    const chegada = new Date(Date.now() + duracaoTotal*1000);
+    document.getElementById('hud-eta').textContent = chegada.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+    mostrarToast('Rota otimizada: ' + enderecos.length + ' paradas');
+    toggleSheet(true);
+  });
+}
+
+function limparRota(){
+  directionsRenderer.setDirections({routes:[]});
+  document.getElementById('rota-origem').value = '';
+  document.getElementById('rota-paradas').value = '';
+  document.getElementById('hud-dist').textContent = '0 km';
+  document.getElementById('hud-eta').textContent = '--';
+}
+
+/* ============================================================
+   UI: TABS / SHEET
+   ============================================================ */
+function trocarTab(nome){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === nome));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + nome).classList.add('active');
+  document.getElementById('sheet').classList.remove('collapsed');
+}
+
+function toggleSheet(forcarAberto){
+  const sheet = document.getElementById('sheet');
+  if(forcarAberto){ sheet.classList.remove('collapsed'); return; }
+  sheet.classList.toggle('collapsed');
+}
+
+function mostrarToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ============================================================
+   LEADS — LISTA, MAPA, MODAL
+   ============================================================ */
+function persistirLeadsCache(){
+  localStorage.setItem('prospector_leads_cache', JSON.stringify(leadsCache.slice(0, 300)));
+}
+
+function atualizarHud(){
+  document.getElementById('hud-leads').textContent = leadsCache.length;
+  const badge = document.getElementById('badge-leads');
+  const novos = leadsCache.filter(l => l.status === 'novo').length;
+  badge.style.display = novos > 0 ? 'inline-block' : 'none';
+  badge.textContent = novos;
+}
+
+function renderLeadsLista(){
+  const cont = document.getElementById('leads-list');
+  if(leadsCache.length === 0){
+    cont.innerHTML = '<div class="empty-state">Nenhum lead ainda. Inicie a prospecção no mapa.</div>';
+    return;
+  }
+  cont.innerHTML = leadsCache.map((l, i) => `
+    <div class="lead-card" onclick="abrirModalLead(${i})">
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${escapeHtml(l.empresa)}</div>
+          <div class="lead-addr">${escapeHtml(l.endereco)}</div>
+        </div>
+        <span class="status-pill status-${l.status}">${l.status}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+let leadMarkers = [];
+function renderLeadsNoMapa(){
+  if(!map) return;
+  leadMarkers.forEach(m => m.setMap(null));
+  leadMarkers = [];
+  leadsCache.forEach(l => {
+    if(!l.latitude || !l.longitude) return;
+    const marker = new google.maps.Marker({
+      position: { lat: Number(l.latitude), lng: Number(l.longitude) },
+      map, title: l.empresa,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale:6, fillColor:'#2BD4C4', fillOpacity:0.9, strokeColor:'#0B0C0E', strokeWeight:1 }
+    });
+    leadMarkers.push(marker);
+  });
+}
+
+let modalLeadIndex = null;
+function abrirModalLead(i){
+  modalLeadIndex = i;
+  const l = leadsCache[i];
+  document.getElementById('modal-title').textContent = l.empresa;
+  document.getElementById('m-status').value = l.status;
+  document.getElementById('m-cnpj').value = l.cnpj || '';
+  document.getElementById('m-cnae').value = l.cnae || '';
+  document.getElementById('m-telefone').value = l.telefone || '';
+  document.getElementById('m-email').value = l.email || '';
+  document.getElementById('m-endereco').value = l.endereco || '';
+  document.getElementById('m-obs').value = l.observacoes || '';
+  document.getElementById('modal-overlay').style.display = 'flex';
+}
+
+function fecharModalSeClicarFora(ev){
+  if(ev.target.id === 'modal-overlay') document.getElementById('modal-overlay').style.display = 'none';
+}
+
+function salvarLeadModal(){
+  if(modalLeadIndex === null) return;
+  const l = leadsCache[modalLeadIndex];
+  l.status = document.getElementById('m-status').value;
+  l.cnpj = document.getElementById('m-cnpj').value.trim();
+  l.cnae = document.getElementById('m-cnae').value.trim();
+  l.telefone = document.getElementById('m-telefone').value.trim();
+  l.email = document.getElementById('m-email').value.trim();
+  l.observacoes = document.getElementById('m-obs').value.trim();
+
+  persistirLeadsCache();
+  renderLeadsLista();
+  atualizarHud();
+  document.getElementById('modal-overlay').style.display = 'none';
+  enviarParaBackend('updateLead', l);
+  mostrarToast('Lead atualizado');
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
+}
+
+/* ============================================================
+   AGENDA / NOTAS
+   ============================================================ */
+function abrirNovaNota(){
+  document.getElementById('n-titulo').value = '';
+  document.getElementById('n-nota').value = '';
+  document.getElementById('modal-nota-overlay').style.display = 'flex';
+}
+function fecharNotaSeClicarFora(ev){
+  if(ev.target.id === 'modal-nota-overlay') document.getElementById('modal-nota-overlay').style.display = 'none';
+}
+function salvarNota(){
+  const titulo = document.getElementById('n-titulo').value.trim();
+  const nota = document.getElementById('n-nota').value.trim();
+  if(!titulo){ mostrarToast('Dê um título para a anotação'); return; }
+
+  const item = {
+    id: 'local_' + Date.now(),
+    titulo, nota, status:'pendente',
+    data: new Date().toISOString().slice(0,10),
+    hora: new Date().toTimeString().slice(0,5)
+  };
+  agendaCache.unshift(item);
+  renderAgendaLista();
+  document.getElementById('modal-nota-overlay').style.display = 'none';
+  enviarParaBackend('addNote', item);
+  mostrarToast('Anotação salva');
+}
+
+function renderAgendaLista(){
+  const cont = document.getElementById('agenda-list');
+  if(agendaCache.length === 0){
+    cont.innerHTML = '<div class="empty-state">Nenhuma anotação para hoje.</div>';
+    return;
+  }
+  cont.innerHTML = agendaCache.map((n, i) => `
+    <div class="lead-card" onclick="concluirNota(${i})">
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${escapeHtml(n.titulo)}</div>
+          <div class="lead-addr">${escapeHtml(n.nota)}</div>
+        </div>
+        <span class="status-pill ${n.status === 'concluida' ? 'status-qualificado' : 'status-novo'}">${n.status} · ${n.hora}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function concluirNota(i){
+  const n = agendaCache[i];
+  n.status = n.status === 'pendente' ? 'concluida' : 'pendente';
+  renderAgendaLista();
+  enviarParaBackend('updateNote', n);
+}
+
+/* ============================================================
+   COMUNICAÇÃO COM O BACKEND (Apps Script)
+   ============================================================ */
+function enviarParaBackend(action, payload){
+  if(!CONFIG || !CONFIG.backendUrl) return;
+  fetch(CONFIG.backendUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // evita preflight CORS no Apps Script
+    body: JSON.stringify({ action, payload })
+  }).then(r => r.json()).then(resp => {
+    if(!resp.ok){ console.warn('Backend respondeu erro:', resp.erro); }
+  }).catch(err => {
+    // sem internet ou backend fora — guarda na fila offline e tenta depois
+    filaOffline.push({ action, payload, tentativas:0 });
+    localStorage.setItem('prospector_fila_offline', JSON.stringify(filaOffline));
+  });
+}
+
+function tentarReenviarFilaOffline(){
+  if(!CONFIG || !CONFIG.backendUrl || filaOffline.length === 0) return;
+  const pendentes = [...filaOffline];
+  filaOffline = [];
+  pendentes.forEach(item => enviarParaBackend(item.action, item.payload));
+  localStorage.setItem('prospector_fila_offline', JSON.stringify(filaOffline));
+}
+
+function carregarLeadsDoBackend(){
+  if(!CONFIG || !CONFIG.backendUrl) return;
+  fetch(CONFIG.backendUrl + '?action=listLeads')
+    .then(r => r.json())
+    .then(resp => {
+      if(!resp.ok) return;
+      resp.leads.forEach(l => { if(l.place_id) placeIdsVistos.add(l.place_id); });
+      // mescla: mantém os locais mais recentes, adiciona os que só existem no servidor
+      const idsLocais = new Set(leadsCache.map(l => l.id));
+      resp.leads.forEach(l => { if(!idsLocais.has(l.id)) leadsCache.push(l); });
+      persistirLeadsCache();
+      renderLeadsLista();
+      renderLeadsNoMapa();
+      atualizarHud();
+    }).catch(()=>{});
+}
+
+function carregarAgendaDoBackend(){
+  if(!CONFIG || !CONFIG.backendUrl) return;
+  fetch(CONFIG.backendUrl + '?action=listAgenda')
+    .then(r => r.json())
+    .then(resp => {
+      if(!resp.ok) return;
+      agendaCache = resp.itens.reverse();
+      renderAgendaLista();
+    }).catch(()=>{});
+}
+
+/* ============================================================
+   INICIALIZAÇÃO
+   ============================================================ */
+if(CONFIG){
+  renderLeadsLista();
+  atualizarHud();
+  carregarGoogleMaps();
+}
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

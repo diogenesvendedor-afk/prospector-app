@@ -1,0 +1,15 @@
+{
+  "name": "Prospector — Diogenes Almeida Representações",
+  "short_name": "Prospector",
+  "description": "Prospecção ativa em rota, rota otimizada e CRM de campo",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0C0E",
+  "theme_color": "#0B0C0E",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
