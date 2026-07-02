@@ -1,6 +1,5 @@
-const CACHE_NAME = 'prospector-cache-v1';
+const CACHE_NAME = 'prospector-cache-v2'; // versão incrementada: força o navegador a descartar o cache antigo
 const ARQUIVOS_SHELL = [
-  './index.html',
   './manifest.json'
 ];
 
@@ -20,15 +19,23 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Estratégia: network-first para tudo que é API/Google Maps, cache-first para o shell do app.
+// Estratégia: network-first para o HTML (sempre busca a versão mais nova primeiro,
+// só usa cache se estiver sem internet). Isso evita ficar preso numa versão antiga
+// do app enquanto ele ainda está em desenvolvimento.
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-  const ehShell = ARQUIVOS_SHELL.some(arq => url.endsWith(arq.replace('./', '')));
 
-  if (ehShell) {
+  if (event.request.mode === 'navigate' || url.endsWith('.html') || url.endsWith('/')) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request))
+      fetch(event.request)
+        .then((resposta) => {
+          const copia = resposta.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copia));
+          return resposta;
+        })
+        .catch(() => caches.match(event.request))
     );
+    return;
   }
-  // outras requisições (Google Maps, Apps Script) sempre vão direto pra rede
+  // outras requisições (Google Maps, Apps Script, manifest) vão direto pra rede
 });
