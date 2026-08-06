@@ -67,6 +67,17 @@
   .chip .v{font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:500; color:var(--accent); line-height:1;}
   .chip .l{font-size:8.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:3px;}
 
+  /* ---------- Barra "Rota do dia" (persistente, sempre acessível) ---------- */
+  #rota-dia-bar{
+    position:fixed; top:96px; left:12px; right:12px; z-index:19; display:none;
+    background:rgba(255,122,26,.14); border:1px solid var(--accent); border-radius:10px;
+    padding:8px 12px; backdrop-filter:blur(6px); cursor:pointer;
+    align-items:center; justify-content:space-between; gap:8px;
+  }
+  #rota-dia-bar .txt{font-size:12px; color:var(--text); font-weight:600;}
+  #rota-dia-bar .sub{font-size:10px; color:var(--muted); margin-top:2px;}
+  #rota-dia-bar .arrow{color:var(--accent); font-size:16px;}
+
   /* ---------- FAB cluster (prospecção em rota) ---------- */
   #fabs{position:fixed; right:14px; bottom:calc(20px + env(safe-area-inset-bottom)); z-index:21; display:flex; flex-direction:column; gap:10px;}
   .fab{
@@ -272,6 +283,14 @@
   <div class="chip"><div class="v" id="hud-eta">--</div><div class="l">Chegada</div></div>
 </div>
 
+<div id="rota-dia-bar" onclick="abrirPainel('rota')">
+  <div>
+    <div class="txt" id="rota-dia-texto">Rota do dia</div>
+    <div class="sub" id="rota-dia-sub"></div>
+  </div>
+  <div class="arrow">›</div>
+</div>
+
 <div id="fabs">
   <div class="fab" id="fab-radius" title="Raio de prospecção em rota" onclick="cicleRadius()">2km</div>
   <div class="fab primary" id="fab-prospect" onclick="toggleProspeccao()">▶</div>
@@ -320,6 +339,13 @@
         <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
         <p class="hint">Dica: abra um cliente ou lead no mapa e toque em <b>"Adicionar à rota"</b> — as paradas marcadas
           aparecem aqui pra você otimizar de uma vez (até 23 por rota, limite da própria API do Google).</p>
+
+        <div id="rota-checkin-controles" style="display:none; margin-top:14px;">
+          <div class="drawer-sep" style="margin-bottom:14px;"></div>
+          <button class="btn btn-accent" onclick="confirmarChegadaManual()">📍 Cheguei nesta parada</button>
+          <div style="height:8px;"></div>
+          <button class="btn btn-ghost" onclick="pularParadaAtual()">Pular esta parada</button>
+        </div>
         <p class="hint">Ao iniciar a prospecção (botão ▶ no mapa), o app varre automaticamente um raio de
           <b id="hint-radius">2 km</b> ao redor da sua posição enquanto você dirige, e adiciona empresas
           compatíveis com seu segmento na aba <b>Leads</b> — em segundo plano, sem precisar abrir este menu.</p>
@@ -381,6 +407,28 @@
           BigQuery numa aba chamada <b>IMPORTAR_BONDMANN</b> ou <b>IMPORTAR_BRANSALES</b> antes de tocar aqui):</p>
         <button class="btn btn-ghost" onclick="importarBaseApp('Bondmann')" style="margin-bottom:8px;">📥 Importar Bondmann</button>
         <button class="btn btn-ghost" onclick="importarBaseApp('Bransales')">📥 Importar Bransales</button>
+
+        <div class="drawer-sep" style="margin:18px 0;"></div>
+
+        <p class="hint" style="margin-top:0;">Encontrou um cliente na rua que não está na base? Cadastre na hora
+          (se o GPS estiver ativo, a localização atual já é salva junto):</p>
+        <button class="btn btn-teal" onclick="abrirFormClienteManual()" id="btn-abrir-form-manual">➕ Adicionar cliente manualmente</button>
+
+        <div id="form-cliente-manual" style="display:none; margin-top:12px;">
+          <div class="field"><label>Nome / Razão social</label><input id="nc-nome" type="text" placeholder="Ex: Serralheria São José"></div>
+          <div class="field"><label>Telefone</label><input id="nc-telefone" type="text" placeholder="(47) 9...."></div>
+          <div class="field"><label>Endereço</label><input id="nc-endereco" type="text" placeholder="Rua, número, bairro"></div>
+          <div class="field"><label>Segmento</label>
+            <select id="nc-segmento">
+              <option value="Bondmann">Bondmann Química</option>
+              <option value="Bransales">Bransales Pneus</option>
+              <option value="Manual">Outro</option>
+            </select>
+          </div>
+          <button class="btn btn-accent" onclick="salvarClienteManual()">Salvar cliente</button>
+          <div style="height:8px;"></div>
+          <button class="btn btn-ghost" onclick="fecharFormClienteManual()">Cancelar</button>
+        </div>
       </div>
 
       <!-- LEADS -->
@@ -462,14 +510,21 @@ let nicheSelecionado = null;
 let clientesBaseCache = [];   // clientes atualmente exibidos no mapa (filtrados por região)
 let clienteMarkers = [];
 let cidadesCarregadas = false;
-let rotaSelecionados = [];    // endereços marcados em "Adicionar à rota" (leads ou clientes)
+let rotaSelecionados = [];    // paradas marcadas (objetos: endereco, nome, tipo, id, lat, lng)
 const LIMITE_WAYPOINTS_ROTA = 23; // limite prático da API do Google Directions
+
+/* ---- Rota do dia (persistida + detecção de chegada) ---- */
+let rotaDoDiaOrdenada = [];   // paradas na ordem otimizada da última rota calculada
+let rotaProximoIndex = 0;
+let restaurandoRota = false;
+let chegadaSinalizadaPara = null; // evita re-disparar o check-in repetidamente parado no mesmo lugar
+let checkinAtivo = null;      // { alvo, latLng } quando o modal foi aberto por uma chegada detectada
 
 /* ============================================================
    ONBOARDING / CONFIG
    ============================================================ */
 function abrirConfig(){
-  fecharDrawer();
+  fecharDrawerInterno();
   document.getElementById('onboarding').style.display = 'block';
   if(CONFIG){
     document.getElementById('cfg-apikey').value = CONFIG.apiKey || '';
@@ -505,15 +560,39 @@ if(CONFIG){
 }
 
 /* ============================================================
+   NAVEGAÇÃO — evita que o app feche quando o vendedor tenta
+   voltar do menu/painel pro mapa (botão voltar do Android/PWA)
+   ============================================================ */
+window.addEventListener('popstate', () => {
+  if(document.getElementById('modal-overlay').style.display === 'flex'){
+    document.getElementById('modal-overlay').style.display = 'none';
+    return;
+  }
+  if(document.getElementById('panel-overlay').classList.contains('show')){
+    fecharPainelInterno();
+    return;
+  }
+  if(document.getElementById('drawer').classList.contains('show')){
+    fecharDrawerInterno();
+    return;
+  }
+});
+
+/* ============================================================
    DRAWER (MENU LATERAL)
    ============================================================ */
 function abrirDrawer(){
   document.getElementById('drawer').classList.add('show');
   document.getElementById('drawer-overlay').classList.add('show');
+  history.pushState({ prospectorNav:'drawer' }, '');
 }
-function fecharDrawer(){
+function fecharDrawerInterno(){
   document.getElementById('drawer').classList.remove('show');
   document.getElementById('drawer-overlay').classList.remove('show');
+}
+function fecharDrawer(){
+  if(history.state && history.state.prospectorNav === 'drawer'){ history.back(); }
+  else { fecharDrawerInterno(); }
 }
 
 /* ============================================================
@@ -521,15 +600,20 @@ function fecharDrawer(){
    ============================================================ */
 const TITULOS_PAINEL = { rota:'Rota', prospeccao:'Área de prospecção', clientesBase:'Base de clientes', leads:'Leads', agenda:'Agenda' };
 function abrirPainel(nome){
-  fecharDrawer();
+  fecharDrawerInterno();
   document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + nome).classList.add('active');
   document.getElementById('panel-title').textContent = TITULOS_PAINEL[nome] || '';
   document.getElementById('panel-overlay').classList.add('show');
   if(nome === 'clientesBase' && !cidadesCarregadas) carregarCidades();
+  history.pushState({ prospectorNav:'panel' }, '');
+}
+function fecharPainelInterno(){
+  document.getElementById('panel-overlay').classList.remove('show');
 }
 function fecharPainel(){
-  document.getElementById('panel-overlay').classList.remove('show');
+  if(history.state && history.state.prospectorNav === 'panel'){ history.back(); }
+  else { fecharPainelInterno(); }
 }
 function fecharPainelSeClicarFora(ev){
   if(ev.target.id === 'panel-overlay') fecharPainel();
@@ -586,6 +670,13 @@ function initMap(){
   iniciarRastreamento();
   carregarLeadsDoBackend();
   carregarAgendaDoBackend();
+
+  let debounceRecluster = null;
+  map.addListener('idle', () => {
+    if(ultimosClientesValidos.length === 0) return;
+    clearTimeout(debounceRecluster);
+    debounceRecluster = setTimeout(desenharClientesClusterizados, 150);
+  });
   tentarReenviarFilaOffline();
   setInterval(tentarReenviarFilaOffline, 20000);
 }
@@ -627,6 +718,7 @@ function onPosicaoAtualizada(pos){
       zIndex: 999
     });
     map.setCenter(latLng);
+    restaurarRotaDoDia();
   } else {
     posMarker.setPosition(latLng);
   }
@@ -646,6 +738,18 @@ function onPosicaoAtualizada(pos){
     if(distUltimaBusca > raioBusca * 0.6){
       ultimaPosicaoBusca = latLng;
       buscarEmpresasProximas(latLng, raioBusca);
+    }
+  }
+
+  // Rota do dia: detecta chegada na próxima parada programada
+  if(rotaDoDiaOrdenada.length > 0 && rotaProximoIndex < rotaDoDiaOrdenada.length){
+    const alvo = rotaDoDiaOrdenada[rotaProximoIndex];
+    if(alvo.lat && alvo.lng){
+      const dist = distanciaMetros(latLng, { lat:alvo.lat, lng:alvo.lng });
+      if(dist <= RAIO_CHEGADA_METROS && chegadaSinalizadaPara !== alvo){
+        chegadaSinalizadaPara = alvo;
+        sinalizarChegada(alvo, latLng);
+      }
     }
   }
 }
@@ -866,20 +970,78 @@ function mostrarClientesNoMapa(){
   }).catch(() => { statusEl.textContent = 'Erro de conexão ao buscar clientes.'; });
 }
 
+const LIMITE_PINS_INDIVIDUAIS = 60; // acima disso, agrupa em vez de desenhar pino por pino
+let ultimosClientesValidos = [];    // cache local pra reclusterizar sem precisar buscar de novo no zoom
+
 function renderClientesNoMapa(){
   if(!map) return;
+  ultimosClientesValidos = clientesBaseCache
+    .map((c, i) => ({ c, i }))
+    .filter(o => o.c.latitude && o.c.longitude);
+  desenharClientesClusterizados();
+}
+
+function grauClusterPorZoom_(zoom){
+  if(zoom >= 15) return 0.0015;
+  if(zoom >= 13) return 0.004;
+  if(zoom >= 11) return 0.012;
+  if(zoom >= 9)  return 0.035;
+  return 0.09;
+}
+
+function desenharClientesClusterizados(){
   clienteMarkers.forEach(m => m.setMap(null));
   clienteMarkers = [];
-  clientesBaseCache.forEach((c, i) => {
-    if(!c.latitude || !c.longitude) return;
-    const marker = new google.maps.Marker({
-      position: { lat:Number(c.latitude), lng:Number(c.longitude) },
-      map, title: c.razao_social,
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale:6, fillColor:'#FF7A1A', fillOpacity:0.9, strokeColor:'#0B0C0E', strokeWeight:1 }
-    });
-    marker.addListener('click', () => abrirModalItem('cliente', i));
-    clienteMarkers.push(marker);
+  if(ultimosClientesValidos.length === 0) return;
+
+  if(ultimosClientesValidos.length <= LIMITE_PINS_INDIVIDUAIS){
+    ultimosClientesValidos.forEach(o => desenharPinCliente_(o));
+    return;
+  }
+
+  const grade = grauClusterPorZoom_(map.getZoom());
+  const buckets = {};
+  ultimosClientesValidos.forEach(o => {
+    const lat = Number(o.c.latitude), lng = Number(o.c.longitude);
+    const chave = Math.round(lat/grade) + '_' + Math.round(lng/grade);
+    if(!buckets[chave]) buckets[chave] = { latSum:0, lngSum:0, itens:[] };
+    buckets[chave].latSum += lat;
+    buckets[chave].lngSum += lng;
+    buckets[chave].itens.push(o);
   });
+
+  Object.values(buckets).forEach(b => {
+    const centro = { lat: b.latSum / b.itens.length, lng: b.lngSum / b.itens.length };
+    if(b.itens.length === 1){
+      desenharPinCliente_(b.itens[0], centro);
+    } else {
+      desenharClusterCliente_(b.itens, centro);
+    }
+  });
+}
+
+function desenharPinCliente_(o, posicaoForcada){
+  const marker = new google.maps.Marker({
+    position: posicaoForcada || { lat:Number(o.c.latitude), lng:Number(o.c.longitude) },
+    map, title: o.c.razao_social,
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale:6, fillColor:'#FF7A1A', fillOpacity:0.9, strokeColor:'#0B0C0E', strokeWeight:1 }
+  });
+  marker.addListener('click', () => abrirModalItem('cliente', o.i));
+  clienteMarkers.push(marker);
+}
+
+function desenharClusterCliente_(itens, centro){
+  const marker = new google.maps.Marker({
+    position: centro, map,
+    label: { text:String(itens.length), color:'#0B0C0E', fontSize:'12px', fontWeight:'700' },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: Math.min(22, 10 + itens.length), fillColor:'#FF7A1A', fillOpacity:0.9, strokeColor:'#0B0C0E', strokeWeight:2 },
+    zIndex: 50
+  });
+  marker.addListener('click', () => {
+    map.setZoom(Math.min(map.getZoom() + 3, 17));
+    map.panTo(centro);
+  });
+  clienteMarkers.push(marker);
 }
 
 function importarBaseApp(segmento){
@@ -897,6 +1059,59 @@ function importarBaseApp(segmento){
     cidadesCarregadas = false;
     carregarCidades();
   }).catch(() => { statusEl.textContent = 'Erro de conexão. A importação de bases grandes pode demorar — tente de novo em instantes.'; });
+}
+
+function abrirFormClienteManual(){
+  document.getElementById('form-cliente-manual').style.display = 'block';
+  document.getElementById('btn-abrir-form-manual').style.display = 'none';
+}
+
+function fecharFormClienteManual(){
+  document.getElementById('form-cliente-manual').style.display = 'none';
+  document.getElementById('btn-abrir-form-manual').style.display = 'block';
+  document.getElementById('nc-nome').value = '';
+  document.getElementById('nc-telefone').value = '';
+  document.getElementById('nc-endereco').value = '';
+}
+
+function salvarClienteManual(){
+  const nome = document.getElementById('nc-nome').value.trim();
+  if(!nome){ mostrarToast('Informe o nome do cliente'); return; }
+  if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
+
+  const payload = {
+    razao_social: nome,
+    telefone: document.getElementById('nc-telefone').value.trim(),
+    logradouro: document.getElementById('nc-endereco').value.trim(),
+    municipio: '',
+    segmento: document.getElementById('nc-segmento').value,
+    vendedor: CONFIG.vendedor
+  };
+
+  let posicaoAtual = null;
+  if(posMarker){
+    posicaoAtual = posMarker.getPosition().toJSON();
+    payload.latitude = posicaoAtual.lat;
+    payload.longitude = posicaoAtual.lng;
+  }
+
+  enviarParaBackend('addCliente', payload);
+  mostrarToast('Cliente cadastrado! Já sincronizando com a planilha.');
+  fecharFormClienteManual();
+
+  // feedback visual imediato no mapa, mesmo antes de recarregar a
+  // região filtrada — assim ele já vê o pino sem precisar buscar de novo
+  if(map && posicaoAtual){
+    const marker = new google.maps.Marker({
+      position: posicaoAtual, map, title: nome,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale:7, fillColor:'#2BD4C4', fillOpacity:0.95, strokeColor:'#0B0C0E', strokeWeight:1 }
+    });
+    marker.addListener('click', () => {
+      const info = new google.maps.InfoWindow({ content: '<div style="color:#111;font-weight:600;">' + escapeHtml(nome) + '</div>' });
+      info.open(map, marker);
+    });
+    clienteMarkers.push(marker);
+  }
 }
 
 /* ============================================================
@@ -932,8 +1147,26 @@ function calcularRota(){
     const chegada = new Date(Date.now() + duracaoTotal*1000);
     document.getElementById('hud-eta').textContent = chegada.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 
-    mostrarToast('Rota otimizada: ' + enderecos.length + ' paradas');
-    fecharPainel();
+    // Reordena as paradas selecionadas na mesma ordem que o Google
+    // otimizou, pra saber exatamente qual é a "próxima parada" — isso
+    // é o que vira a Rota do Dia (prioridade fixa, mesmo navegando
+    // por outras telas do app)
+    if(rotaSelecionados.length === enderecos.length){
+      const ordem = resultado.routes[0].waypoint_order || [];
+      const ultimaParada = rotaSelecionados[rotaSelecionados.length - 1];
+      rotaDoDiaOrdenada = ordem.map(i => rotaSelecionados[i]).concat([ultimaParada]);
+    } else {
+      rotaDoDiaOrdenada = [];
+    }
+    if(!restaurandoRota) rotaProximoIndex = 0;
+    persistirRotaDoDia();
+    atualizarBarraRotaDia();
+
+    if(!restaurandoRota){
+      mostrarToast('Rota otimizada: ' + enderecos.length + ' paradas');
+      fecharPainel();
+    }
+    restaurandoRota = false;
   });
 }
 
@@ -943,16 +1176,23 @@ function limparRota(){
   document.getElementById('rota-paradas').value = '';
   document.getElementById('hud-dist').textContent = '0 km';
   document.getElementById('hud-eta').textContent = '--';
+  rotaSelecionados = [];
+  rotaDoDiaOrdenada = [];
+  rotaProximoIndex = 0;
+  chegadaSinalizadaPara = null;
+  atualizarBadgeSelecionados();
+  atualizarBarraRotaDia();
+  localStorage.removeItem('prospector_rota_dia');
 }
 
-function adicionarASelecaoRota(endereco){
-  if(!endereco){ mostrarToast('Este registro não tem endereço salvo ainda'); return; }
-  if(rotaSelecionados.includes(endereco)){ mostrarToast('Já está na lista de paradas'); return; }
+function adicionarASelecaoRota(parada){
+  if(!parada.endereco){ mostrarToast('Este registro não tem endereço salvo ainda'); return; }
+  if(rotaSelecionados.some(p => p.endereco === parada.endereco)){ mostrarToast('Já está na lista de paradas'); return; }
   if(rotaSelecionados.length >= LIMITE_WAYPOINTS_ROTA){
     mostrarToast('Limite de ' + LIMITE_WAYPOINTS_ROTA + ' paradas por rota atingido');
     return;
   }
-  rotaSelecionados.push(endereco);
+  rotaSelecionados.push(parada);
   atualizarBadgeSelecionados();
   mostrarToast('Adicionado à rota (' + rotaSelecionados.length + ')');
 }
@@ -965,8 +1205,125 @@ function atualizarBadgeSelecionados(){
 
 function usarSelecionadosNaRota(){
   if(rotaSelecionados.length === 0) return;
-  document.getElementById('rota-paradas').value = rotaSelecionados.join('; ');
+  document.getElementById('rota-paradas').value = rotaSelecionados.map(p => p.endereco).join('; ');
   mostrarToast(rotaSelecionados.length + ' paradas prontas — toque em Otimizar rota');
+}
+
+/* ============================================================
+   ROTA DO DIA — persiste a rota otimizada, com uma barra sempre
+   visível no mapa mostrando a próxima parada, e detecta chegada
+   automaticamente pelo GPS, registrando a visita.
+   ============================================================ */
+const RAIO_CHEGADA_METROS = 120;
+
+function persistirRotaDoDia(){
+  const hoje = new Date().toISOString().slice(0,10);
+  localStorage.setItem('prospector_rota_dia', JSON.stringify({
+    data: hoje,
+    ordenada: rotaDoDiaOrdenada,
+    proximoIndex: rotaProximoIndex,
+    origem: document.getElementById('rota-origem').value.trim(),
+    paradasTexto: document.getElementById('rota-paradas').value.trim()
+  }));
+}
+
+function restaurarRotaDoDia(){
+  try{
+    const salvo = JSON.parse(localStorage.getItem('prospector_rota_dia') || 'null');
+    if(!salvo){ return; }
+    const hoje = new Date().toISOString().slice(0,10);
+    if(salvo.data !== hoje){ localStorage.removeItem('prospector_rota_dia'); return; }
+
+    rotaDoDiaOrdenada = salvo.ordenada || [];
+    rotaProximoIndex = salvo.proximoIndex || 0;
+    atualizarBarraRotaDia();
+
+    if(salvo.paradasTexto && posMarker){
+      document.getElementById('rota-origem').value = salvo.origem || '';
+      document.getElementById('rota-paradas').value = salvo.paradasTexto;
+      restaurandoRota = true;
+      calcularRota();
+    }
+  }catch(e){ /* nada salvo ainda, segue normal */ }
+}
+
+function atualizarBarraRotaDia(){
+  const bar = document.getElementById('rota-dia-bar');
+  const controles = document.getElementById('rota-checkin-controles');
+  if(!rotaDoDiaOrdenada || rotaDoDiaOrdenada.length === 0){
+    bar.style.display = 'none';
+    if(controles) controles.style.display = 'none';
+    return;
+  }
+  const total = rotaDoDiaOrdenada.length;
+  if(rotaProximoIndex >= total){
+    document.getElementById('rota-dia-texto').textContent = '✅ Rota do dia concluída';
+    document.getElementById('rota-dia-sub').textContent = total + ' paradas visitadas hoje';
+    if(controles) controles.style.display = 'none';
+  } else {
+    const proxima = rotaDoDiaOrdenada[rotaProximoIndex];
+    document.getElementById('rota-dia-texto').textContent = '📍 Próxima: ' + (proxima.nome || 'parada');
+    document.getElementById('rota-dia-sub').textContent = rotaProximoIndex + ' de ' + total + ' paradas feitas hoje';
+    if(controles) controles.style.display = 'block';
+  }
+  bar.style.display = 'flex';
+}
+
+function avancarRotaDoDia(){
+  rotaProximoIndex++;
+  chegadaSinalizadaPara = null;
+  persistirRotaDoDia();
+  atualizarBarraRotaDia();
+  if(rotaProximoIndex >= rotaDoDiaOrdenada.length){
+    mostrarToast('🎉 Rota do dia concluída!');
+  }
+}
+
+function sinalizarChegada(alvo, latLng){
+  mostrarToast('📍 Chegada detectada: ' + (alvo.nome || 'cliente') + ' — confirme a visita');
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  checkinAtivo = { alvo, latLng };
+
+  const idx = alvo.tipo === 'lead'
+    ? leadsCache.findIndex(l => l.id === alvo.id)
+    : clientesBaseCache.findIndex(c => c.cnpj === alvo.id);
+
+  if(idx >= 0){
+    abrirModalItem(alvo.tipo, idx);
+    document.getElementById('m-status').value = 'visitado';
+  } else {
+    // Cliente não está carregado no cache atual (ex: a rota foi montada
+    // antes de filtrar essa região) — registra a chegada mesmo assim
+    registrarChegadaSemModal_(alvo, latLng);
+  }
+}
+
+function registrarChegadaSemModal_(alvo, latLng){
+  enviarParaBackend('logVisita', {
+    cnpj: alvo.tipo === 'cliente' ? alvo.id : '',
+    nome_cliente: alvo.nome, tipo_origem: alvo.tipo,
+    latitude: latLng.lat, longitude: latLng.lng,
+    status_definido: 'visitado', vendedor: CONFIG.vendedor
+  });
+  avancarRotaDoDia();
+}
+
+function confirmarChegadaManual(){
+  if(!posMarker || rotaProximoIndex >= rotaDoDiaOrdenada.length) return;
+  const alvo = rotaDoDiaOrdenada[rotaProximoIndex];
+  sinalizarChegada(alvo, posMarker.getPosition().toJSON());
+}
+
+function pularParadaAtual(){
+  if(rotaProximoIndex >= rotaDoDiaOrdenada.length) return;
+  const alvo = rotaDoDiaOrdenada[rotaProximoIndex];
+  enviarParaBackend('logVisita', {
+    cnpj: alvo.tipo === 'cliente' ? alvo.id : '',
+    nome_cliente: alvo.nome, tipo_origem: alvo.tipo,
+    status_definido: 'pulado', vendedor: CONFIG.vendedor
+  });
+  mostrarToast('Parada pulada: ' + (alvo.nome || ''));
+  avancarRotaDoDia();
 }
 
 /* ============================================================
@@ -1057,10 +1414,18 @@ function abrirModalItem(tipo, i){
   document.getElementById('m-endereco').value = endereco || '';
   document.getElementById('m-obs').value = item.observacoes || '';
   document.getElementById('modal-overlay').style.display = 'flex';
+  history.pushState({ prospectorNav:'modal' }, '');
+}
+
+function fecharModalInterno(){
+  document.getElementById('modal-overlay').style.display = 'none';
+  checkinAtivo = null;
 }
 
 function fecharModalSeClicarFora(ev){
-  if(ev.target.id === 'modal-overlay') document.getElementById('modal-overlay').style.display = 'none';
+  if(ev.target.id !== 'modal-overlay') return;
+  if(history.state && history.state.prospectorNav === 'modal'){ history.back(); }
+  else { fecharModalInterno(); }
 }
 
 function salvarModalItem(){
@@ -1086,14 +1451,36 @@ function salvarModalItem(){
     enviarParaBackend('updateCliente', { cnpj: c.cnpj, status, telefone, email, observacoes: obs });
   }
 
-  document.getElementById('modal-overlay').style.display = 'none';
+  // Se este modal foi aberto por uma chegada detectada na rota do dia,
+  // registra a visita no diário e avança pra próxima parada
+  if(checkinAtivo){
+    enviarParaBackend('logVisita', {
+      cnpj: modalTipo === 'cliente' ? cnpj : '',
+      nome_cliente: document.getElementById('modal-title').textContent,
+      tipo_origem: modalTipo,
+      latitude: checkinAtivo.latLng.lat, longitude: checkinAtivo.latLng.lng,
+      status_definido: status, observacoes: obs, vendedor: CONFIG.vendedor
+    });
+    avancarRotaDoDia();
+  }
+  checkinAtivo = null;
+
+  if(history.state && history.state.prospectorNav === 'modal'){ history.back(); }
+  else { fecharModalInterno(); }
   mostrarToast((modalTipo === 'lead' ? 'Lead' : 'Cliente') + ' atualizado');
 }
 
 function adicionarModalItemNaRota(){
   if(modalIndex === null) return;
+  const item = modalTipo === 'lead' ? leadsCache[modalIndex] : clientesBaseCache[modalIndex];
   const endereco = document.getElementById('m-endereco').value.trim();
-  adicionarASelecaoRota(endereco);
+  const nome = item.empresa || item.razao_social || item.nome_fantasia || 'Cliente';
+  adicionarASelecaoRota({
+    endereco, nome, tipo: modalTipo,
+    id: modalTipo === 'lead' ? item.id : item.cnpj,
+    lat: item.latitude ? Number(item.latitude) : null,
+    lng: item.longitude ? Number(item.longitude) : null
+  });
 }
 
 function escapeHtml(s){
@@ -1105,7 +1492,7 @@ function escapeHtml(s){
    mesmo sem internet, pois usa os dados já salvos neste aparelho
    ============================================================ */
 function exportarCSV(){
-  fecharDrawer();
+  fecharDrawerInterno();
   if(leadsCache.length === 0){ mostrarToast('Não há leads para exportar ainda'); return; }
 
   const colunas = ['empresa','cnpj','cnae','endereco','telefone','email','latitude','longitude','status','segmento','observacoes','vendedor','data_captura'];
@@ -1216,7 +1603,7 @@ function tentarReenviarFilaOffline(){
 }
 
 function forcarSincronizacao(){
-  fecharDrawer();
+  fecharDrawerInterno();
   if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
   mostrarToast('Sincronizando...');
   fetch(CONFIG.backendUrl + '?action=ping')
