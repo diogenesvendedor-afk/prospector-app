@@ -286,6 +286,7 @@
   </div>
   <div class="drawer-item" onclick="abrirPainel('rota')"><span class="ic">🧭</span> Rota</div>
   <div class="drawer-item" onclick="abrirPainel('prospeccao')"><span class="ic">🔍</span> Área de prospecção</div>
+  <div class="drawer-item" onclick="abrirPainel('clientesBase')"><span class="ic">🗂</span> Base de clientes</div>
   <div class="drawer-item" onclick="abrirPainel('leads')"><span class="ic">📋</span> Leads <span class="badge" id="drawer-badge-leads" style="display:none;">0</span></div>
   <div class="drawer-item" onclick="abrirPainel('agenda')"><span class="ic">🗒</span> Agenda</div>
   <div class="drawer-sep"></div>
@@ -313,9 +314,12 @@
           <label>Paradas (separe múltiplos endereços com ; )</label>
           <textarea id="rota-paradas" placeholder="Cliente A, Blumenau; Cliente B, Gaspar; Cliente C, Indaial"></textarea>
         </div>
+        <button class="btn btn-teal" onclick="usarSelecionadosNaRota()" id="btn-usar-selecionados" style="margin-bottom:8px; display:none;">Usar paradas marcadas (<span id="qtd-selecionados">0</span>)</button>
         <button class="btn btn-accent" onclick="calcularRota()">Otimizar rota</button>
         <div style="height:8px;"></div>
         <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
+        <p class="hint">Dica: abra um cliente ou lead no mapa e toque em <b>"Adicionar à rota"</b> — as paradas marcadas
+          aparecem aqui pra você otimizar de uma vez (até 23 por rota, limite da própria API do Google).</p>
         <p class="hint">Ao iniciar a prospecção (botão ▶ no mapa), o app varre automaticamente um raio de
           <b id="hint-radius">2 km</b> ao redor da sua posição enquanto você dirige, e adiciona empresas
           compatíveis com seu segmento na aba <b>Leads</b> — em segundo plano, sem precisar abrir este menu.</p>
@@ -347,6 +351,38 @@
           é feita a partir do centro da tela, não da sua posição em tempo real.</p>
       </div>
 
+      <!-- BASE DE CLIENTES (importada do BigQuery — Bondmann / Bransales) -->
+      <div class="panel-content" id="panel-clientesBase">
+        <p class="hint" style="margin-top:0;">A base completa fica salva na planilha, mesmo com dezenas de milhares
+          de empresas. Aqui você escolhe a região pra só essas aparecerem no mapa.</p>
+
+        <div class="field">
+          <label>Segmento</label>
+          <select id="cb-segmento" onchange="aoTrocarSegmento()">
+            <option value="Todos">Todos</option>
+            <option value="Bondmann">Bondmann Química</option>
+            <option value="Bransales">Bransales Pneus</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Cidade</label>
+          <select id="cb-cidade" onchange="aoTrocarCidade()"><option value="">Carregando cidades...</option></select>
+        </div>
+        <div class="field">
+          <label>Bairro (opcional)</label>
+          <select id="cb-bairro"><option value="">Todos os bairros da cidade</option></select>
+        </div>
+        <button class="btn btn-teal" onclick="mostrarClientesNoMapa()">Mostrar no mapa</button>
+        <div id="cb-status" class="hint"></div>
+
+        <div class="drawer-sep" style="margin:18px 0;"></div>
+
+        <p class="hint" style="margin-top:0;">Importar/atualizar a base a partir da planilha (cole o resultado do
+          BigQuery numa aba chamada <b>IMPORTAR_BONDMANN</b> ou <b>IMPORTAR_BRANSALES</b> antes de tocar aqui):</p>
+        <button class="btn btn-ghost" onclick="importarBaseApp('Bondmann')" style="margin-bottom:8px;">📥 Importar Bondmann</button>
+        <button class="btn btn-ghost" onclick="importarBaseApp('Bransales')">📥 Importar Bransales</button>
+      </div>
+
       <!-- LEADS -->
       <div class="panel-content" id="panel-leads">
         <div id="leads-list"><div class="empty-state">Nenhum lead ainda. Use a prospecção em rota ou a busca manual.</div></div>
@@ -373,7 +409,10 @@
       <select id="m-status">
         <option value="novo">Novo</option>
         <option value="contatado">Contatado</option>
+        <option value="visitado">Visitado</option>
         <option value="qualificado">Qualificado</option>
+        <option value="cliente_ativo">Cliente ativo</option>
+        <option value="sem_interesse">Sem interesse</option>
         <option value="descartado">Descartado</option>
       </select>
     </div>
@@ -385,7 +424,9 @@
     <div class="field"><label>Email</label><input id="m-email"></div>
     <div class="field"><label>Endereço</label><input id="m-endereco" disabled></div>
     <div class="field"><label>Observações</label><textarea id="m-obs"></textarea></div>
-    <button class="btn btn-accent" onclick="salvarLeadModal()">Salvar alterações</button>
+    <button class="btn btn-accent" onclick="salvarModalItem()">Salvar alterações</button>
+    <div style="height:8px;"></div>
+    <button class="btn btn-teal" onclick="adicionarModalItemNaRota()">📍 Adicionar à rota</button>
   </div>
 </div>
 
@@ -416,6 +457,13 @@ let filaOffline = JSON.parse(localStorage.getItem('prospector_fila_offline') || 
 let ultimaPosicaoBusca = null;
 let agendaCache = [];
 let nicheSelecionado = null;
+
+/* ---- Base de clientes (importada do BigQuery) ---- */
+let clientesBaseCache = [];   // clientes atualmente exibidos no mapa (filtrados por região)
+let clienteMarkers = [];
+let cidadesCarregadas = false;
+let rotaSelecionados = [];    // endereços marcados em "Adicionar à rota" (leads ou clientes)
+const LIMITE_WAYPOINTS_ROTA = 23; // limite prático da API do Google Directions
 
 /* ============================================================
    ONBOARDING / CONFIG
@@ -471,13 +519,14 @@ function fecharDrawer(){
 /* ============================================================
    PAINEL GENÉRICO (aberto via menu)
    ============================================================ */
-const TITULOS_PAINEL = { rota:'Rota', prospeccao:'Área de prospecção', leads:'Leads', agenda:'Agenda' };
+const TITULOS_PAINEL = { rota:'Rota', prospeccao:'Área de prospecção', clientesBase:'Base de clientes', leads:'Leads', agenda:'Agenda' };
 function abrirPainel(nome){
   fecharDrawer();
   document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + nome).classList.add('active');
   document.getElementById('panel-title').textContent = TITULOS_PAINEL[nome] || '';
   document.getElementById('panel-overlay').classList.add('show');
+  if(nome === 'clientesBase' && !cidadesCarregadas) carregarCidades();
 }
 function fecharPainel(){
   document.getElementById('panel-overlay').classList.remove('show');
@@ -733,6 +782,124 @@ function buscarManual(){
 }
 
 /* ============================================================
+   BASE DE CLIENTES (importada do BigQuery — Bondmann / Bransales)
+   A base inteira fica só na planilha. O app só busca no backend
+   os clientes da região escolhida, então nunca carrega tudo no
+   celular de uma vez.
+   ============================================================ */
+function carregarCidades(){
+  if(!CONFIG || !CONFIG.backendUrl) return;
+  const segmento = document.getElementById('cb-segmento').value;
+  const sel = document.getElementById('cb-cidade');
+  sel.innerHTML = '<option value="">Carregando cidades...</option>';
+
+  fetch(CONFIG.backendUrl + '?action=listRegioes&segmento=' + encodeURIComponent(segmento))
+    .then(r => r.json())
+    .then(resp => {
+      if(!resp.ok || resp.regioes.length === 0){
+        sel.innerHTML = '<option value="">Nenhuma cidade na base ainda</option>';
+        return;
+      }
+      cidadesCarregadas = true;
+      sel.innerHTML = '<option value="">Selecione uma cidade</option>' +
+        resp.regioes.map(r => `<option value="${escapeHtml(r.municipio)}">${escapeHtml(r.municipio)} (${r.total})</option>`).join('');
+    })
+    .catch(() => { sel.innerHTML = '<option value="">Erro ao carregar — verifique a conexão</option>'; });
+}
+
+function aoTrocarSegmento(){
+  cidadesCarregadas = false;
+  document.getElementById('cb-bairro').innerHTML = '<option value="">Todos os bairros da cidade</option>';
+  carregarCidades();
+}
+
+function aoTrocarCidade(){
+  const municipio = document.getElementById('cb-cidade').value;
+  const segmento = document.getElementById('cb-segmento').value;
+  const selBairro = document.getElementById('cb-bairro');
+  selBairro.innerHTML = '<option value="">Todos os bairros da cidade</option>';
+  if(!municipio || !CONFIG || !CONFIG.backendUrl) return;
+
+  fetch(CONFIG.backendUrl + '?action=listBairros&municipio=' + encodeURIComponent(municipio) + '&segmento=' + encodeURIComponent(segmento))
+    .then(r => r.json())
+    .then(resp => {
+      if(!resp.ok) return;
+      selBairro.innerHTML = '<option value="">Todos os bairros da cidade</option>' +
+        resp.bairros.map(b => `<option value="${escapeHtml(b.bairro)}">${escapeHtml(b.bairro)} (${b.total})</option>`).join('');
+    })
+    .catch(() => {});
+}
+
+function mostrarClientesNoMapa(){
+  if(!map){ mostrarToast('Aguardando o mapa carregar...'); return; }
+  const municipio = document.getElementById('cb-cidade').value;
+  const bairro = document.getElementById('cb-bairro').value;
+  const segmento = document.getElementById('cb-segmento').value;
+  const statusEl = document.getElementById('cb-status');
+
+  if(!municipio){ mostrarToast('Escolha uma cidade primeiro'); return; }
+  statusEl.textContent = 'Buscando clientes e calculando localização no mapa...';
+
+  const url = CONFIG.backendUrl + '?action=listClientesRegiao'
+    + '&municipio=' + encodeURIComponent(municipio)
+    + '&bairro=' + encodeURIComponent(bairro || '')
+    + '&segmento=' + encodeURIComponent(segmento);
+
+  fetch(url).then(r => r.json()).then(resp => {
+    if(!resp.ok){ statusEl.textContent = 'Erro: ' + (resp.erro || 'falha ao buscar'); return; }
+
+    clientesBaseCache = resp.clientes;
+    renderClientesNoMapa();
+
+    let msg = resp.exibidos_no_mapa + ' de ' + resp.total_regiao + ' clientes exibidos no mapa.';
+    if(resp.parcial){
+      msg += ' Ainda faltam ' + resp.restantes + ' sem localização calculada — toque em "Mostrar no mapa" de novo pra continuar.';
+    }
+    statusEl.textContent = msg;
+
+    if(resp.clientes.length > 0){
+      const bounds = new google.maps.LatLngBounds();
+      resp.clientes.forEach(c => bounds.extend({ lat:Number(c.latitude), lng:Number(c.longitude) }));
+      map.fitBounds(bounds);
+      fecharPainel();
+    }
+  }).catch(() => { statusEl.textContent = 'Erro de conexão ao buscar clientes.'; });
+}
+
+function renderClientesNoMapa(){
+  if(!map) return;
+  clienteMarkers.forEach(m => m.setMap(null));
+  clienteMarkers = [];
+  clientesBaseCache.forEach((c, i) => {
+    if(!c.latitude || !c.longitude) return;
+    const marker = new google.maps.Marker({
+      position: { lat:Number(c.latitude), lng:Number(c.longitude) },
+      map, title: c.razao_social,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale:6, fillColor:'#FF7A1A', fillOpacity:0.9, strokeColor:'#0B0C0E', strokeWeight:1 }
+    });
+    marker.addListener('click', () => abrirModalItem('cliente', i));
+    clienteMarkers.push(marker);
+  });
+}
+
+function importarBaseApp(segmento){
+  if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
+  const statusEl = document.getElementById('cb-status');
+  statusEl.textContent = 'Importando ' + segmento + '... pode levar até alguns minutos, não feche o app.';
+
+  fetch(CONFIG.backendUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action:'importarBase', payload:{ segmento } })
+  }).then(r => r.json()).then(resp => {
+    if(!resp.ok){ statusEl.textContent = 'Erro: ' + resp.erro; return; }
+    statusEl.textContent = 'Importado! Novos: ' + resp.importados + ' · Já existiam: ' + resp.duplicados;
+    cidadesCarregadas = false;
+    carregarCidades();
+  }).catch(() => { statusEl.textContent = 'Erro de conexão. A importação de bases grandes pode demorar — tente de novo em instantes.'; });
+}
+
+/* ============================================================
    ROTA OTIMIZADA
    ============================================================ */
 function calcularRota(){
@@ -778,6 +945,30 @@ function limparRota(){
   document.getElementById('hud-eta').textContent = '--';
 }
 
+function adicionarASelecaoRota(endereco){
+  if(!endereco){ mostrarToast('Este registro não tem endereço salvo ainda'); return; }
+  if(rotaSelecionados.includes(endereco)){ mostrarToast('Já está na lista de paradas'); return; }
+  if(rotaSelecionados.length >= LIMITE_WAYPOINTS_ROTA){
+    mostrarToast('Limite de ' + LIMITE_WAYPOINTS_ROTA + ' paradas por rota atingido');
+    return;
+  }
+  rotaSelecionados.push(endereco);
+  atualizarBadgeSelecionados();
+  mostrarToast('Adicionado à rota (' + rotaSelecionados.length + ')');
+}
+
+function atualizarBadgeSelecionados(){
+  const btn = document.getElementById('btn-usar-selecionados');
+  document.getElementById('qtd-selecionados').textContent = rotaSelecionados.length;
+  btn.style.display = rotaSelecionados.length > 0 ? 'block' : 'none';
+}
+
+function usarSelecionadosNaRota(){
+  if(rotaSelecionados.length === 0) return;
+  document.getElementById('rota-paradas').value = rotaSelecionados.join('; ');
+  mostrarToast(rotaSelecionados.length + ' paradas prontas — toque em Otimizar rota');
+}
+
 /* ============================================================
    TOAST
    ============================================================ */
@@ -811,7 +1002,7 @@ function renderLeadsLista(){
     return;
   }
   cont.innerHTML = leadsCache.map((l, i) => `
-    <div class="lead-card" onclick="abrirModalLead(${i})">
+    <div class="lead-card" onclick="abrirModalItem('lead', ${i})">
       <div class="lead-top">
         <div>
           <div class="lead-name">${escapeHtml(l.empresa)}</div>
@@ -835,22 +1026,36 @@ function renderLeadsNoMapa(){
       map, title: l.empresa,
       icon: { path: google.maps.SymbolPath.CIRCLE, scale:6, fillColor:'#2BD4C4', fillOpacity:0.9, strokeColor:'#0B0C0E', strokeWeight:1 }
     });
+    marker.addListener('click', () => abrirModalItem('lead', leadsCache.indexOf(l)));
     leadMarkers.push(marker);
   });
 }
 
-let modalLeadIndex = null;
-function abrirModalLead(i){
-  modalLeadIndex = i;
-  const l = leadsCache[i];
-  document.getElementById('modal-title').textContent = l.empresa;
-  document.getElementById('m-status').value = l.status;
-  document.getElementById('m-cnpj').value = l.cnpj || '';
-  document.getElementById('m-cnae').value = l.cnae || '';
-  document.getElementById('m-telefone').value = l.telefone || '';
-  document.getElementById('m-email').value = l.email || '';
-  document.getElementById('m-endereco').value = l.endereco || '';
-  document.getElementById('m-obs').value = l.observacoes || '';
+/* ---- Modal de edição compartilhado entre Leads e Clientes da base ---- */
+let modalTipo = null;   // 'lead' | 'cliente'
+let modalIndex = null;
+
+function abrirModalLead(i){ abrirModalItem('lead', i); } // mantido por compatibilidade
+
+function abrirModalItem(tipo, i){
+  modalTipo = tipo;
+  modalIndex = i;
+  const item = tipo === 'lead' ? leadsCache[i] : clientesBaseCache[i];
+  if(!item) return;
+
+  const nome = item.empresa || item.razao_social || item.nome_fantasia || '(sem nome)';
+  const endereco = tipo === 'lead'
+    ? item.endereco
+    : [item.tipo_logradouro, item.logradouro, item.numero, item.bairro, item.municipio].filter(Boolean).join(', ');
+
+  document.getElementById('modal-title').textContent = nome;
+  document.getElementById('m-status').value = item.status || 'novo';
+  document.getElementById('m-cnpj').value = item.cnpj || '';
+  document.getElementById('m-cnae').value = item.cnae || '';
+  document.getElementById('m-telefone').value = item.telefone || (item.ddd ? item.ddd + ' ' + (item.telefone||'') : '') || '';
+  document.getElementById('m-email').value = item.email || '';
+  document.getElementById('m-endereco').value = endereco || '';
+  document.getElementById('m-obs').value = item.observacoes || '';
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
@@ -858,22 +1063,37 @@ function fecharModalSeClicarFora(ev){
   if(ev.target.id === 'modal-overlay') document.getElementById('modal-overlay').style.display = 'none';
 }
 
-function salvarLeadModal(){
-  if(modalLeadIndex === null) return;
-  const l = leadsCache[modalLeadIndex];
-  l.status = document.getElementById('m-status').value;
-  l.cnpj = document.getElementById('m-cnpj').value.trim();
-  l.cnae = document.getElementById('m-cnae').value.trim();
-  l.telefone = document.getElementById('m-telefone').value.trim();
-  l.email = document.getElementById('m-email').value.trim();
-  l.observacoes = document.getElementById('m-obs').value.trim();
+function salvarModalItem(){
+  if(modalIndex === null) return;
 
-  persistirLeadsCache();
-  renderLeadsLista();
-  atualizarHud();
+  const status = document.getElementById('m-status').value;
+  const telefone = document.getElementById('m-telefone').value.trim();
+  const email = document.getElementById('m-email').value.trim();
+  const obs = document.getElementById('m-obs').value.trim();
+  const cnpj = document.getElementById('m-cnpj').value.trim();
+  const cnae = document.getElementById('m-cnae').value.trim();
+
+  if(modalTipo === 'lead'){
+    const l = leadsCache[modalIndex];
+    l.status = status; l.cnpj = cnpj; l.cnae = cnae; l.telefone = telefone; l.email = email; l.observacoes = obs;
+    persistirLeadsCache();
+    renderLeadsLista();
+    atualizarHud();
+    enviarParaBackend('updateLead', l);
+  } else {
+    const c = clientesBaseCache[modalIndex];
+    c.status = status; c.telefone = telefone; c.email = email; c.observacoes = obs;
+    enviarParaBackend('updateCliente', { cnpj: c.cnpj, status, telefone, email, observacoes: obs });
+  }
+
   document.getElementById('modal-overlay').style.display = 'none';
-  enviarParaBackend('updateLead', l);
-  mostrarToast('Lead atualizado');
+  mostrarToast((modalTipo === 'lead' ? 'Lead' : 'Cliente') + ' atualizado');
+}
+
+function adicionarModalItemNaRota(){
+  if(modalIndex === null) return;
+  const endereco = document.getElementById('m-endereco').value.trim();
+  adicionarASelecaoRota(endereco);
 }
 
 function escapeHtml(s){
