@@ -897,7 +897,7 @@ function carregarCidades(){
   const sel = document.getElementById('cb-cidade');
   sel.innerHTML = '<option value="">Carregando cidades...</option>';
 
-  fetch(CONFIG.backendUrl + '?action=listRegioes&segmento=' + encodeURIComponent(segmento))
+  fetch(CONFIG.backendUrl + '?action=listRegioes&segmento=' + encodeURIComponent(segmento) + '&_=' + Date.now(), { cache:'no-store' })
     .then(r => r.json())
     .then(resp => {
       if(!resp.ok || resp.regioes.length === 0){
@@ -924,7 +924,7 @@ function aoTrocarCidade(){
   selBairro.innerHTML = '<option value="">Todos os bairros da cidade</option>';
   if(!municipio || !CONFIG || !CONFIG.backendUrl) return;
 
-  fetch(CONFIG.backendUrl + '?action=listBairros&municipio=' + encodeURIComponent(municipio) + '&segmento=' + encodeURIComponent(segmento))
+  fetch(CONFIG.backendUrl + '?action=listBairros&municipio=' + encodeURIComponent(municipio) + '&segmento=' + encodeURIComponent(segmento) + '&_=' + Date.now(), { cache:'no-store' })
     .then(r => r.json())
     .then(resp => {
       if(!resp.ok) return;
@@ -947,9 +947,10 @@ function mostrarClientesNoMapa(){
   const url = CONFIG.backendUrl + '?action=listClientesRegiao'
     + '&municipio=' + encodeURIComponent(municipio)
     + '&bairro=' + encodeURIComponent(bairro || '')
-    + '&segmento=' + encodeURIComponent(segmento);
+    + '&segmento=' + encodeURIComponent(segmento)
+    + '&_=' + Date.now();
 
-  fetch(url).then(r => r.json()).then(resp => {
+  fetch(url, { cache:'no-store' }).then(r => r.json()).then(resp => {
     if(!resp.ok){ statusEl.textContent = 'Erro: ' + (resp.erro || 'falha ao buscar'); return; }
 
     clientesBaseCache = resp.clientes;
@@ -1606,7 +1607,7 @@ function forcarSincronizacao(){
   fecharDrawerInterno();
   if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
   mostrarToast('Sincronizando...');
-  fetch(CONFIG.backendUrl + '?action=ping')
+  fetch(CONFIG.backendUrl + '?action=ping&_=' + Date.now(), { cache:'no-store' })
     .then(r => r.json())
     .then(() => {
       tentarReenviarFilaOffline();
