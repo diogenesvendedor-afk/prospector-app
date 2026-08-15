@@ -391,6 +391,10 @@
           </select>
         </div>
         <div class="field">
+          <label>Ramo (CNAE, opcional)</label>
+          <select id="cb-ramo" onchange="aoTrocarRamo()"><option value="">Todos os ramos</option></select>
+        </div>
+        <div class="field">
           <label>Cidade</label>
           <select id="cb-cidade" onchange="aoTrocarCidade()"><option value="">Carregando cidades...</option></select>
         </div>
@@ -453,6 +457,9 @@
   <div id="modal">
     <div class="grabber"></div>
     <h2 id="modal-title">Empresa</h2>
+    <div class="field" id="m-fantasia-wrap"><label>Nome fantasia</label><input id="m-fantasia"></div>
+    <div class="field"><label>Ramo / Segmento</label><input id="m-ramo" placeholder="ex: Bondmann, metalúrgica, serralheria..."></div>
+    <div class="field"><label>Contato</label><input id="m-contato" placeholder="nome de quem atender"></div>
     <div class="field"><label>Status</label>
       <select id="m-status">
         <option value="novo">Novo</option>
@@ -605,7 +612,7 @@ function abrirPainel(nome){
   document.getElementById('panel-' + nome).classList.add('active');
   document.getElementById('panel-title').textContent = TITULOS_PAINEL[nome] || '';
   document.getElementById('panel-overlay').classList.add('show');
-  if(nome === 'clientesBase' && !cidadesCarregadas) carregarCidades();
+  if(nome === 'clientesBase' && !cidadesCarregadas){ carregarRamos(); carregarCidades(); }
   history.pushState({ prospectorNav:'panel' }, '');
 }
 function fecharPainelInterno(){
@@ -891,13 +898,33 @@ function buscarManual(){
    os clientes da região escolhida, então nunca carrega tudo no
    celular de uma vez.
    ============================================================ */
+function carregarRamos(){
+  if(!CONFIG || !CONFIG.backendUrl) return;
+  const segmento = document.getElementById('cb-segmento').value;
+  const sel = document.getElementById('cb-ramo');
+  sel.innerHTML = '<option value="">Carregando ramos...</option>';
+
+  fetch(CONFIG.backendUrl + '?action=listRamos&segmento=' + encodeURIComponent(segmento) + '&_=' + Date.now(), { cache:'no-store' })
+    .then(r => r.json())
+    .then(resp => {
+      if(!resp.ok || !resp.ramos || resp.ramos.length === 0){
+        sel.innerHTML = '<option value="">Todos os ramos</option>';
+        return;
+      }
+      sel.innerHTML = '<option value="">Todos os ramos</option>' +
+        resp.ramos.map(r => `<option value="${escapeHtml(r.cnae)}">${escapeHtml(r.descricao || r.cnae)} (${r.total})</option>`).join('');
+    })
+    .catch(() => { sel.innerHTML = '<option value="">Todos os ramos</option>'; });
+}
+
 function carregarCidades(){
   if(!CONFIG || !CONFIG.backendUrl) return;
   const segmento = document.getElementById('cb-segmento').value;
+  const ramo = document.getElementById('cb-ramo') ? document.getElementById('cb-ramo').value : '';
   const sel = document.getElementById('cb-cidade');
   sel.innerHTML = '<option value="">Carregando cidades...</option>';
 
-  fetch(CONFIG.backendUrl + '?action=listRegioes&segmento=' + encodeURIComponent(segmento) + '&_=' + Date.now(), { cache:'no-store' })
+  fetch(CONFIG.backendUrl + '?action=listRegioes&segmento=' + encodeURIComponent(segmento) + '&cnae=' + encodeURIComponent(ramo) + '&_=' + Date.now(), { cache:'no-store' })
     .then(r => r.json())
     .then(resp => {
       if(!resp.ok || resp.regioes.length === 0){
@@ -914,17 +941,25 @@ function carregarCidades(){
 function aoTrocarSegmento(){
   cidadesCarregadas = false;
   document.getElementById('cb-bairro').innerHTML = '<option value="">Todos os bairros da cidade</option>';
+  carregarRamos();
+  carregarCidades();
+}
+
+function aoTrocarRamo(){
+  cidadesCarregadas = false;
+  document.getElementById('cb-bairro').innerHTML = '<option value="">Todos os bairros da cidade</option>';
   carregarCidades();
 }
 
 function aoTrocarCidade(){
   const municipio = document.getElementById('cb-cidade').value;
   const segmento = document.getElementById('cb-segmento').value;
+  const ramo = document.getElementById('cb-ramo') ? document.getElementById('cb-ramo').value : '';
   const selBairro = document.getElementById('cb-bairro');
   selBairro.innerHTML = '<option value="">Todos os bairros da cidade</option>';
   if(!municipio || !CONFIG || !CONFIG.backendUrl) return;
 
-  fetch(CONFIG.backendUrl + '?action=listBairros&municipio=' + encodeURIComponent(municipio) + '&segmento=' + encodeURIComponent(segmento) + '&_=' + Date.now(), { cache:'no-store' })
+  fetch(CONFIG.backendUrl + '?action=listBairros&municipio=' + encodeURIComponent(municipio) + '&segmento=' + encodeURIComponent(segmento) + '&cnae=' + encodeURIComponent(ramo) + '&_=' + Date.now(), { cache:'no-store' })
     .then(r => r.json())
     .then(resp => {
       if(!resp.ok) return;
@@ -934,41 +969,60 @@ function aoTrocarCidade(){
     .catch(() => {});
 }
 
-function mostrarClientesNoMapa(){
+async function mostrarClientesNoMapa(){
   if(!map){ mostrarToast('Aguardando o mapa carregar...'); return; }
   const municipio = document.getElementById('cb-cidade').value;
   const bairro = document.getElementById('cb-bairro').value;
   const segmento = document.getElementById('cb-segmento').value;
+  const ramo = document.getElementById('cb-ramo') ? document.getElementById('cb-ramo').value : '';
   const statusEl = document.getElementById('cb-status');
 
   if(!municipio){ mostrarToast('Escolha uma cidade primeiro'); return; }
-  statusEl.textContent = 'Buscando clientes e calculando localização no mapa...';
 
   const url = CONFIG.backendUrl + '?action=listClientesRegiao'
     + '&municipio=' + encodeURIComponent(municipio)
     + '&bairro=' + encodeURIComponent(bairro || '')
     + '&segmento=' + encodeURIComponent(segmento)
-    + '&_=' + Date.now();
+    + '&cnae=' + encodeURIComponent(ramo);
 
-  fetch(url, { cache:'no-store' }).then(r => r.json()).then(resp => {
-    if(!resp.ok){ statusEl.textContent = 'Erro: ' + (resp.erro || 'falha ao buscar'); return; }
+  let todosClientes = [];
+  let rodada = 0;
+  const MAX_RODADAS = 25; // trava de segurança — evita loop infinito se algo falhar
 
-    clientesBaseCache = resp.clientes;
-    renderClientesNoMapa();
+  try {
+    while(rodada < MAX_RODADAS){
+      rodada++;
+      statusEl.textContent = rodada === 1
+        ? 'Buscando clientes e calculando localização no mapa...'
+        : `Calculando localização (rodada ${rodada})... ${todosClientes.length} no mapa até agora.`;
 
-    let msg = resp.exibidos_no_mapa + ' de ' + resp.total_regiao + ' clientes exibidos no mapa.';
-    if(resp.parcial){
-      msg += ' Ainda faltam ' + resp.restantes + ' sem localização calculada — toque em "Mostrar no mapa" de novo pra continuar.';
+      const resp = await fetch(url + '&_=' + Date.now(), { cache:'no-store' }).then(r => r.json());
+      if(!resp.ok){ statusEl.textContent = 'Erro: ' + (resp.erro || 'falha ao buscar'); return; }
+
+      todosClientes = resp.clientes; // cada resposta já traz todos os já geocodificados até aqui
+
+      if(!resp.parcial){
+        statusEl.textContent = todosClientes.length + ' de ' + resp.total_regiao + ' clientes exibidos no mapa.';
+        break;
+      }
+      if(rodada === MAX_RODADAS){
+        statusEl.textContent = todosClientes.length + ' de ' + resp.total_regiao + ' exibidos — ainda restam ' + resp.restantes + '. Toque em "Mostrar no mapa" de novo pra continuar.';
+      }
     }
-    statusEl.textContent = msg;
+  } catch(err){
+    statusEl.textContent = 'Erro de conexão ao buscar clientes.';
+    return;
+  }
 
-    if(resp.clientes.length > 0){
-      const bounds = new google.maps.LatLngBounds();
-      resp.clientes.forEach(c => bounds.extend({ lat:Number(c.latitude), lng:Number(c.longitude) }));
-      map.fitBounds(bounds);
-      fecharPainel();
-    }
-  }).catch(() => { statusEl.textContent = 'Erro de conexão ao buscar clientes.'; });
+  clientesBaseCache = todosClientes;
+  renderClientesNoMapa();
+
+  if(todosClientes.length > 0){
+    const bounds = new google.maps.LatLngBounds();
+    todosClientes.forEach(c => bounds.extend({ lat:Number(c.latitude), lng:Number(c.longitude) }));
+    map.fitBounds(bounds);
+    fecharPainel();
+  }
 }
 
 const LIMITE_PINS_INDIVIDUAIS = 60; // acima disso, agrupa em vez de desenhar pino por pino
@@ -1407,6 +1461,10 @@ function abrirModalItem(tipo, i){
     : [item.tipo_logradouro, item.logradouro, item.numero, item.bairro, item.municipio].filter(Boolean).join(', ');
 
   document.getElementById('modal-title').textContent = nome;
+  document.getElementById('m-fantasia-wrap').style.display = (tipo === 'cliente') ? 'block' : 'none';
+  document.getElementById('m-fantasia').value = item.nome_fantasia || '';
+  document.getElementById('m-ramo').value = item.segmento || '';
+  document.getElementById('m-contato').value = item.contato || '';
   document.getElementById('m-status').value = item.status || 'novo';
   document.getElementById('m-cnpj').value = item.cnpj || '';
   document.getElementById('m-cnae').value = item.cnae || '';
@@ -1438,10 +1496,14 @@ function salvarModalItem(){
   const obs = document.getElementById('m-obs').value.trim();
   const cnpj = document.getElementById('m-cnpj').value.trim();
   const cnae = document.getElementById('m-cnae').value.trim();
+  const ramo = document.getElementById('m-ramo').value.trim();
+  const contato = document.getElementById('m-contato').value.trim();
+  const fantasia = document.getElementById('m-fantasia').value.trim();
 
   if(modalTipo === 'lead'){
     const l = leadsCache[modalIndex];
     l.status = status; l.cnpj = cnpj; l.cnae = cnae; l.telefone = telefone; l.email = email; l.observacoes = obs;
+    l.segmento = ramo; l.contato = contato;
     persistirLeadsCache();
     renderLeadsLista();
     atualizarHud();
@@ -1449,7 +1511,8 @@ function salvarModalItem(){
   } else {
     const c = clientesBaseCache[modalIndex];
     c.status = status; c.telefone = telefone; c.email = email; c.observacoes = obs;
-    enviarParaBackend('updateCliente', { cnpj: c.cnpj, status, telefone, email, observacoes: obs });
+    c.segmento = ramo; c.contato = contato; c.nome_fantasia = fantasia;
+    enviarParaBackend('updateCliente', { cnpj: c.cnpj, status, telefone, email, observacoes: obs, segmento: ramo, contato, nome_fantasia: fantasia });
   }
 
   // Se este modal foi aberto por uma chegada detectada na rota do dia,
