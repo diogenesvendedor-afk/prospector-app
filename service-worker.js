@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prospector-cache-v4'; // versão incrementada: força o navegador a descartar o cache antigo
+const CACHE_NAME = 'prospector-cache-v5'; // versão incrementada: força o navegador a descartar o cache antigo
 const ARQUIVOS_SHELL = [
   './manifest.json'
 ];
