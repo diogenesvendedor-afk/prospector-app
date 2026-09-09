@@ -78,8 +78,8 @@
   #rota-dia-bar .sub{font-size:10px; color:var(--muted); margin-top:2px;}
   #rota-dia-bar .arrow{color:var(--accent); font-size:16px;}
 
-  /* ---------- FAB cluster (prospecção em rota) ---------- */
-  #fabs{position:fixed; right:14px; bottom:calc(20px + env(safe-area-inset-bottom)); z-index:21; display:flex; flex-direction:column; gap:10px;}
+  /* ---------- FAB cluster — agora só microfone + adicionar cliente (utilitários leves, sempre à mão) ---------- */
+  #fabs{position:fixed; right:14px; bottom:calc(56vh + 14px); z-index:23; display:flex; flex-direction:column; gap:10px;}
   .fab{
     width:52px; height:52px; border-radius:50%; background:var(--panel-raised);
     border:1px solid var(--line); color:var(--text); font-size:13px; font-weight:700;
@@ -119,21 +119,27 @@
   .drawer-sep{height:1px; background:var(--line); margin:10px 0;}
   .drawer-footer{margin-top:auto; padding:14px 20px 0; font-size:10.5px; color:#5a5f66; border-top:1px solid var(--line);}
 
-  /* ---------- PAINEL (abre por cima do mapa, só quando chamado pelo menu) ---------- */
-  #panel-overlay{
-    position:fixed; inset:0; z-index:25; background:rgba(0,0,0,.35);
-    display:none; align-items:flex-end;
-  }
-  #panel-overlay.show{display:flex;}
+  /* ---------- PAINEL FIXO COM ABAS (Rota / Prospecção / Agenda) ---------- */
+  /* Agora é a "casa" do app: fica sempre ancorado embaixo, sem hamburger */
   #panel{
-    width:100%; max-height:82vh; background:var(--panel);
+    position:fixed; left:0; right:0; bottom:0; z-index:22;
+    height:56vh; max-height:56vh; background:var(--panel);
     border-radius:18px 18px 0 0; border-top:1px solid var(--line);
     display:flex; flex-direction:column;
     box-shadow:0 -8px 24px rgba(0,0,0,.45);
   }
   .grabber{width:36px; height:4px; border-radius:3px; background:var(--line); margin:9px auto 2px;}
-  #panel-head{display:flex; align-items:center; justify-content:space-between; padding:8px 16px 10px; border-bottom:1px solid var(--line);}
-  #panel-head h2{margin:0; font-size:20px;}
+  #tab-strip{display:flex; gap:6px; padding:6px 12px 10px; border-bottom:1px solid var(--line);}
+  .tab-btn{
+    flex:1; text-align:center; padding:9px 4px; border-radius:10px; cursor:pointer;
+    font-size:12.5px; font-weight:600; color:var(--muted); background:transparent;
+  }
+  .tab-btn .ic{display:block; font-size:16px; margin-bottom:2px;}
+  .tab-btn.active{background:var(--panel-raised); color:var(--accent);}
+  .tab-btn .badge{
+    display:inline-block; margin-left:4px; background:var(--accent); color:#1a0e00; font-size:9px;
+    border-radius:8px; padding:1px 5px; font-weight:700; vertical-align:top;
+  }
   #panel-body{flex:1; overflow-y:auto; padding:14px 16px calc(20px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling:touch;}
   .panel-content{display:none;}
   .panel-content.active{display:block;}
@@ -183,7 +189,7 @@
   .hint{font-size:11.5px; color:var(--muted); margin-top:12px; line-height:1.5;}
 
   #toast{
-    position:fixed; bottom:calc(90px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%);
+    position:fixed; bottom:calc(56vh + 14px); left:50%; transform:translateX(-50%);
     background:var(--panel-raised); border:1px solid var(--line); color:var(--text);
     padding:9px 16px; border-radius:20px; font-size:12.5px; z-index:50; opacity:0;
     transition:opacity .25s; pointer-events:none; white-space:nowrap; max-width:88vw; overflow:hidden; text-overflow:ellipsis;
@@ -238,7 +244,7 @@
   .fab.mic.listening{background:var(--danger); border-color:var(--danger); color:#fff; animation:pulse-mic 1.1s infinite;}
   @keyframes pulse-mic{0%{box-shadow:0 0 0 0 rgba(255,77,77,.55);}70%{box-shadow:0 0 0 14px rgba(255,77,77,0);}100%{box-shadow:0 0 0 0 rgba(255,77,77,0);}}
   #voice-hint{
-    position:fixed; left:14px; right:80px; bottom:calc(24px + env(safe-area-inset-bottom)); z-index:22;
+    position:fixed; left:14px; right:80px; bottom:calc(56vh + 14px); z-index:23;
     background:rgba(22,24,27,.94); border:1px solid var(--accent); border-radius:12px; padding:10px 12px;
     font-size:12.5px; color:var(--text); display:none; backdrop-filter:blur(6px);
   }
@@ -294,13 +300,15 @@
 <!-- ===== TOP BAR ===== -->
 <div id="topbar">
   <div style="display:flex; align-items:center; gap:8px;">
-    <div class="icon-btn" onclick="abrirDrawer()">☰</div>
     <div class="brand">
       <span class="dot" id="live-dot"></span>
       <span class="brand-text"><b id="vendedor-nome">Vendedor</b> · <span id="status-text">parado</span></span>
     </div>
   </div>
-  <div class="icon-btn" onclick="centralizarNaPosicao()">⌖</div>
+  <div style="display:flex; gap:8px;">
+    <div class="icon-btn" onclick="centralizarNaPosicao()">⌖</div>
+    <div class="icon-btn" onclick="abrirDrawer()">⚙</div>
+  </div>
 </div>
 
 <div id="hud">
@@ -309,7 +317,7 @@
   <div class="chip"><div class="v" id="hud-eta">--</div><div class="l">Chegada</div></div>
 </div>
 
-<div id="rota-dia-bar" onclick="abrirPainel('rota')">
+<div id="rota-dia-bar" onclick="trocarTab('rota')">
   <div>
     <div class="txt" id="rota-dia-texto">Rota do dia</div>
     <div class="sub" id="rota-dia-sub"></div>
@@ -319,117 +327,109 @@
 
 <div id="fabs">
   <div class="fab mic" id="fab-mic" title="Comando por voz" onclick="toggleComandoVoz()">🎤</div>
-  <div class="fab" id="fab-campo" title="Novo cliente / registrar visita" onclick="abrirModalCampo()">➕</div>
-  <div class="fab" id="fab-radius" title="Raio de prospecção em rota" onclick="cicleRadius()">2km</div>
-  <div class="fab primary" id="fab-prospect" onclick="toggleProspeccao()">▶</div>
+  <div class="fab primary" id="fab-campo" title="Novo cliente / registrar visita" onclick="abrirModalCampo()">➕</div>
 </div>
 <div id="voice-hint"></div>
 
-<!-- ===== DRAWER (MENU LATERAL) ===== -->
+<!-- ===== DRAWER (utilidades — navegação principal agora é pelas abas do painel) ===== -->
 <div id="drawer-overlay" onclick="fecharDrawer()"></div>
 <div id="drawer">
   <div class="drawer-brand">
     <div class="display">Prospector</div>
     <div class="sub" id="drawer-vendedor">Diogenes Almeida Representações</div>
   </div>
-  <div class="drawer-item" onclick="abrirPainel('rota')"><span class="ic">🧭</span> Rota</div>
-  <div class="drawer-item" onclick="abrirPainel('prospeccao')"><span class="ic">🔍</span> Área de prospecção</div>
-  <div class="drawer-item" onclick="abrirPainel('leads')"><span class="ic">📋</span> Leads <span class="badge" id="drawer-badge-leads" style="display:none;">0</span></div>
-  <div class="drawer-item" onclick="abrirPainel('agenda')"><span class="ic">🗓</span> Agenda semanal</div>
-  <div class="drawer-sep"></div>
   <div class="drawer-item" onclick="exportarCSV()"><span class="ic">⬇</span> Exportar leads (CSV)</div>
   <div class="drawer-item" onclick="forcarSincronizacao()"><span class="ic">⟳</span> Sincronizar agora</div>
   <div class="drawer-sep"></div>
   <div class="drawer-item" onclick="abrirConfig()"><span class="ic">⚙</span> Configurações</div>
-  <div class="drawer-footer">Prospector v4 · dados salvos na sua planilha Google Sheets</div>
+  <div class="drawer-footer">Prospector v5 · dados salvos na sua planilha Google Sheets</div>
 </div>
 
-<!-- ===== PAINEL GENÉRICO ===== -->
-<div id="panel-overlay" onclick="fecharPainelSeClicarFora(event)">
-  <div id="panel">
-    <div class="grabber"></div>
-    <div id="panel-head"><h2 id="panel-title">Painel</h2><div class="icon-btn" onclick="fecharPainel()">✕</div></div>
-    <div id="panel-body">
+<!-- ===== PAINEL FIXO — abas: Rota / Prospecção / Agenda ===== -->
+<div id="panel">
+  <div class="grabber"></div>
+  <div id="tab-strip">
+    <div class="tab-btn active" id="tabbtn-rota" onclick="trocarTab('rota')"><span class="ic">🧭</span>Rota</div>
+    <div class="tab-btn" id="tabbtn-prospeccao" onclick="trocarTab('prospeccao')"><span class="ic">🔍</span>Prospecção<span class="badge" id="tabbtn-prospeccao-badge" style="display:none;">0</span></div>
+    <div class="tab-btn" id="tabbtn-agenda" onclick="trocarTab('agenda')"><span class="ic">🗓</span>Agenda</div>
+  </div>
+  <div id="panel-body">
 
-      <!-- ROTA -->
-      <div class="panel-content" id="panel-rota">
-        <div class="field">
-          <label>Partida</label>
-          <input id="rota-origem" placeholder="Usar minha localização atual">
-        </div>
-        <div class="field">
-          <label>Paradas (separe múltiplos endereços com ; )</label>
-          <textarea id="rota-paradas" placeholder="Cliente A, Blumenau; Cliente B, Gaspar; Cliente C, Indaial"></textarea>
-        </div>
-        <button class="btn btn-teal" onclick="usarSelecionadosNaRota()" id="btn-usar-selecionados" style="margin-bottom:8px; display:none;">Usar paradas marcadas (<span id="qtd-selecionados">0</span>)</button>
-        <button class="btn btn-accent" onclick="calcularRota()">Otimizar rota</button>
+    <!-- ROTA (tela principal do app) -->
+    <div class="panel-content active" id="panel-rota">
+      <div class="field">
+        <label>Partida</label>
+        <input id="rota-origem" placeholder="Usar minha localização atual">
+      </div>
+      <div class="field">
+        <label>Paradas (separe múltiplos endereços com ; )</label>
+        <textarea id="rota-paradas" placeholder="Cliente A, Blumenau; Cliente B, Gaspar; Cliente C, Indaial"></textarea>
+      </div>
+      <button class="btn btn-teal" onclick="usarSelecionadosNaRota()" id="btn-usar-selecionados" style="margin-bottom:8px; display:none;">Usar paradas marcadas (<span id="qtd-selecionados">0</span>)</button>
+      <button class="btn btn-accent" onclick="calcularRota()">Otimizar rota</button>
+      <div style="height:8px;"></div>
+      <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
+      <p class="hint">Dica: abra um cliente ou lead no mapa e toque em <b>"Adicionar à rota"</b> — as paradas marcadas
+        aparecem aqui pra você otimizar de uma vez (até 23 por rota, limite da própria API do Google).</p>
+
+      <div id="rota-checkin-controles" style="display:none; margin-top:14px;">
+        <div class="drawer-sep" style="margin-bottom:14px;"></div>
+        <button class="btn btn-accent" onclick="confirmarChegadaManual()">📍 Cheguei nesta parada</button>
         <div style="height:8px;"></div>
-        <button class="btn btn-ghost" onclick="limparRota()">Limpar rota</button>
-        <p class="hint">Dica: abra um cliente ou lead no mapa e toque em <b>"Adicionar à rota"</b> — as paradas marcadas
-          aparecem aqui pra você otimizar de uma vez (até 23 por rota, limite da própria API do Google).</p>
-
-        <div id="rota-checkin-controles" style="display:none; margin-top:14px;">
-          <div class="drawer-sep" style="margin-bottom:14px;"></div>
-          <button class="btn btn-accent" onclick="confirmarChegadaManual()">📍 Cheguei nesta parada</button>
-          <div style="height:8px;"></div>
-          <button class="btn btn-ghost" onclick="pularParadaAtual()">Pular esta parada</button>
-        </div>
-        <p class="hint">Ao iniciar a prospecção (botão ▶ no mapa), o app varre automaticamente um raio de
-          <b id="hint-radius">2 km</b> ao redor da sua posição enquanto você dirige, e adiciona empresas
-          compatíveis com seu segmento na aba <b>Leads</b> — em segundo plano, sem precisar abrir este menu.</p>
+        <button class="btn btn-ghost" onclick="pularParadaAtual()">Pular esta parada</button>
       </div>
-
-      <!-- ÁREA DE PROSPECÇÃO (busca manual, parado ou em movimento) -->
-      <div class="panel-content" id="panel-prospeccao">
-        <p class="hint" style="margin-top:0;">Escolha um nicho e busque empresas ao redor do centro do mapa —
-          funciona parado ou em movimento, sem precisar estar em rota.</p>
-        <div class="field"><label>Nicho</label></div>
-        <div class="chips" id="prospeccao-chips"></div>
-        <div class="field">
-          <label>Ou busque por outro termo</label>
-          <input id="prospeccao-termo" placeholder="ex: fundição, tornearia, indústria têxtil">
-        </div>
-        <div class="field">
-          <label>Raio de busca</label>
-          <select id="prospeccao-raio">
-            <option value="500">500 m</option>
-            <option value="1000">1 km</option>
-            <option value="1500" selected>1,5 km</option>
-            <option value="2000">2 km</option>
-            <option value="3000">3 km</option>
-            <option value="5000">5 km</option>
-          </select>
-        </div>
-        <button class="btn btn-teal" onclick="buscarManual()">Buscar neste ponto do mapa</button>
-        <p class="hint">Dica: arraste o mapa até a região que quer varrer antes de tocar em buscar — a busca
-          é feita a partir do centro da tela, não da sua posição em tempo real.</p>
-      </div>
-
-      <!-- LEADS -->
-      <div class="panel-content" id="panel-leads">
-        <div id="leads-list"><div class="empty-state">Nenhum lead ainda. Use a prospecção em rota ou a busca manual.</div></div>
-      </div>
-
-      <!-- AGENDA SEMANAL (lida da planilha) + NOTAS RÁPIDAS -->
-      <div class="panel-content" id="panel-agenda">
-        <div class="row" style="margin-bottom:12px;">
-          <button class="btn btn-teal" id="tab-btn-semana" onclick="trocarAbaAgenda('semana')" style="flex:1;">🗓 Semana</button>
-          <button class="btn btn-ghost" id="tab-btn-notas" onclick="trocarAbaAgenda('notas')" style="flex:1;">🗒 Notas</button>
-        </div>
-
-        <div id="aba-agenda-semana">
-          <p class="hint" style="margin-top:0;">Esta lista vem da aba <b>AGENDA_SEMANAL</b> da sua planilha — defina lá
-            quem você vai visitar essa semana. <span onclick="carregarAgendaSemanalDoBackend()" style="color:var(--accent); cursor:pointer;">Atualizar ⟳</span></p>
-          <div id="agenda-semanal-list"><div class="empty-state">Carregando agenda da semana...</div></div>
-        </div>
-
-        <div id="aba-agenda-notas" style="display:none;">
-          <button class="btn btn-accent" onclick="abrirNovaNota()" style="margin-bottom:10px;">+ Nova anotação</button>
-          <div id="agenda-list"><div class="empty-state">Nenhuma anotação para hoje.</div></div>
-        </div>
-      </div>
-
+      <p class="hint">Precisa prospectar empresas novas pelo caminho? Toque na aba <b>🔍 Prospecção</b> aqui embaixo
+        quando quiser ativar a busca — ela fica desligada por padrão pra não atrapalhar a rota.</p>
     </div>
+
+    <!-- PROSPECÇÃO (só ativa quando esta aba está aberta — não fica mais permanente na tela) -->
+    <div class="panel-content" id="panel-prospeccao">
+      <div class="row" style="margin-bottom:12px; align-items:stretch;">
+        <button class="btn btn-accent" id="prospeccao-toggle-btn" onclick="toggleProspeccao()" style="flex:2;">▶ Iniciar prospecção em rota</button>
+        <button class="btn btn-ghost" id="prospeccao-radius-btn" onclick="cicleRadius()" style="flex:1;">2 km</button>
+      </div>
+      <p class="hint" style="margin-top:0;">Enquanto ativa, o app varre automaticamente o raio escolhido ao redor
+        da sua posição conforme você dirige, e adiciona empresas do seu segmento na lista abaixo — mesmo se você
+        sair desta aba. Toque em <b>Iniciar</b> de novo pra pausar.</p>
+
+      <div class="drawer-sep" style="margin:14px 0;"></div>
+
+      <p class="hint" style="margin-top:0;">Ou busque manualmente ao redor do centro do mapa agora:</p>
+      <div class="field"><label>Nicho</label></div>
+      <div class="chips" id="prospeccao-chips"></div>
+      <div class="field">
+        <label>Ou busque por outro termo</label>
+        <input id="prospeccao-termo" placeholder="ex: fundição, tornearia, indústria têxtil">
+      </div>
+      <button class="btn btn-teal" onclick="buscarManual()">Buscar neste ponto do mapa</button>
+      <p class="hint">Dica: arraste o mapa até a região que quer varrer antes de tocar em buscar.</p>
+
+      <div class="drawer-sep" style="margin:14px 0;"></div>
+      <div id="leads-list"><div class="empty-state">Nenhum lead ainda. Ative a prospecção em rota ou busque manualmente.</div></div>
+    </div>
+
+    <!-- AGENDA SEMANAL (lida da planilha) + NOTAS RÁPIDAS -->
+    <div class="panel-content" id="panel-agenda">
+      <div class="row" style="margin-bottom:12px;">
+        <button class="btn btn-teal" id="tab-btn-semana" onclick="trocarAbaAgenda('semana')" style="flex:1;">🗓 Semana</button>
+        <button class="btn btn-ghost" id="tab-btn-notas" onclick="trocarAbaAgenda('notas')" style="flex:1;">🗒 Notas</button>
+      </div>
+
+      <div id="aba-agenda-semana">
+        <p class="hint" style="margin-top:0;">Esta lista vem da aba <b>AGENDA_SEMANAL</b> da sua planilha — defina lá
+          quem você vai visitar essa semana. <span onclick="carregarAgendaSemanalDoBackend()" style="color:var(--accent); cursor:pointer;">Atualizar ⟳</span></p>
+        <div id="agenda-semanal-list"><div class="empty-state">Carregando agenda da semana...</div></div>
+        <button class="btn btn-danger" onclick="limparAgendaSemanal()" style="margin-top:14px;">🗑 Limpar agenda desta semana</button>
+        <p class="hint">Isso apaga todos os itens da aba AGENDA_SEMANAL na planilha (útil pra começar a semana
+          seguinte do zero). Pra trocar só um cliente, edite direto a linha dele na planilha.</p>
+      </div>
+
+      <div id="aba-agenda-notas" style="display:none;">
+        <button class="btn btn-accent" onclick="abrirNovaNota()" style="margin-bottom:10px;">+ Nova anotação</button>
+        <div id="agenda-list"><div class="empty-state">Nenhuma anotação para hoje.</div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -442,11 +442,15 @@
       <button class="btn btn-ghost" id="mc-tab-btn-visita" onclick="trocarAbaCampo('visita')" style="flex:1;">✓ Registrar visita</button>
     </div>
 
-    <!-- Novo cliente encontrado em campo -->
+    <!-- Novo cliente encontrado em campo — nenhum campo é obrigatório, pode fechar a qualquer momento -->
     <div id="mc-aba-cliente">
+      <p class="hint" style="margin-top:0;">Preencha o que tiver à mão — nada aqui é obrigatório, e você pode fechar
+        este formulário a qualquer momento tocando fora ou no botão voltar, mesmo sem terminar.</p>
       <div class="field"><label>Nome / Razão social</label><input id="nc-nome" type="text" placeholder="Ex: Serralheria São José"></div>
-      <div class="field"><label>Telefone</label><input id="nc-telefone" type="text" placeholder="(47) 9...."></div>
-      <div class="field"><label>Endereço</label><input id="nc-endereco" type="text" placeholder="Rua, número, bairro"></div>
+      <div class="field"><label>CNPJ</label><input id="nc-cnpj" type="text" inputmode="numeric" placeholder="00.000.000/0000-00"></div>
+      <div class="field"><label>Ramo de atividade</label><input id="nc-ramo" type="text" placeholder="Ex: serralheria, usinagem, frota própria..."></div>
+      <div class="field"><label>Contato (pessoa)</label><input id="nc-contato" type="text" placeholder="Nome de quem você falou"></div>
+      <div class="field"><label>Telefone</label><input id="nc-telefone" type="text" inputmode="tel" placeholder="(47) 9...."></div>
       <div class="field"><label>Segmento</label>
         <select id="nc-segmento">
           <option value="Bondmann">Bondmann Química</option>
@@ -454,9 +458,19 @@
           <option value="Manual">Outro</option>
         </select>
       </div>
-      <div class="field"><label>Observações</label><textarea id="nc-obs" placeholder="Detalhes da visita, contato, próximo passo..."></textarea></div>
+      <div class="field"><label>Endereço (opcional)</label><input id="nc-endereco" type="text" placeholder="Rua, número, bairro"></div>
+
+      <div class="field">
+        <label>Coordenada no mapa</label>
+        <div id="nc-coord-status" style="font-size:12.5px; color:var(--muted); background:var(--panel-raised); border:1px solid var(--line); border-radius:9px; padding:10px 11px;">Nenhuma coordenada marcada ainda</div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn btn-ghost" type="button" onclick="usarMinhaLocalizacaoNoCliente()" style="flex:1;">📍 Usar minha localização</button>
+          <button class="btn btn-ghost" type="button" onclick="ativarMarcarNoMapa()" id="nc-btn-marcar-mapa" style="flex:1;">🗺 Marcar no mapa</button>
+        </div>
+      </div>
+
+      <div class="field"><label>Observações</label><textarea id="nc-obs" placeholder="Detalhes da visita, próximo passo..."></textarea></div>
       <button class="btn btn-accent" onclick="salvarClienteManual()">Salvar cliente</button>
-      <p class="hint">Se o GPS estiver ativo, a localização atual é salva junto — assim já entra geocodificado.</p>
     </div>
 
     <!-- Registrar visita avulsa (sem estar vinculada à agenda) -->
@@ -636,10 +650,6 @@ window.addEventListener('popstate', () => {
     checkinAtivo = null;
     return;
   }
-  if(document.getElementById('panel-overlay').classList.contains('show')){
-    fecharPainelInterno();
-    return;
-  }
   if(document.getElementById('drawer').classList.contains('show')){
     fecharDrawerInterno();
     return;
@@ -647,7 +657,7 @@ window.addEventListener('popstate', () => {
 });
 
 /* ============================================================
-   DRAWER (MENU LATERAL)
+   DRAWER (utilidades — sincronizar, exportar, configurações)
    ============================================================ */
 function abrirDrawer(){
   document.getElementById('drawer').classList.add('show');
@@ -664,27 +674,16 @@ function fecharDrawer(){
 }
 
 /* ============================================================
-   PAINEL GENÉRICO (aberto via menu)
+   ABAS DO PAINEL (Rota / Prospecção / Agenda) — o painel agora é
+   fixo na tela; trocar de aba só troca o conteúdo exibido, sem
+   abrir/fechar nada por cima do mapa.
    ============================================================ */
-const TITULOS_PAINEL = { rota:'Rota', prospeccao:'Área de prospecção', leads:'Leads', agenda:'Agenda semanal' };
-function abrirPainel(nome){
-  fecharDrawerInterno();
+function trocarTab(nome){
   document.querySelectorAll('.panel-content').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + nome).classList.add('active');
-  document.getElementById('panel-title').textContent = TITULOS_PAINEL[nome] || '';
-  document.getElementById('panel-overlay').classList.add('show');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tabbtn-' + nome).classList.add('active');
   if(nome === 'agenda') carregarAgendaSemanalDoBackend();
-  history.pushState({ prospectorNav:'panel' }, '');
-}
-function fecharPainelInterno(){
-  document.getElementById('panel-overlay').classList.remove('show');
-}
-function fecharPainel(){
-  if(history.state && history.state.prospectorNav === 'panel'){ history.back(); }
-  else { fecharPainelInterno(); }
-}
-function fecharPainelSeClicarFora(ev){
-  if(ev.target.id === 'panel-overlay') fecharPainel();
 }
 
 /* ============================================================
@@ -731,8 +730,7 @@ function initMap(){
   });
   placesService = new google.maps.places.PlacesService(map);
 
-  document.getElementById('fab-radius').textContent = formatarRaio(raioBusca);
-  document.getElementById('hint-radius').textContent = formatarRaio(raioBusca);
+  document.getElementById('prospeccao-radius-btn').textContent = formatarRaio(raioBusca);
 
   renderLeadsNoMapa();
   iniciarRastreamento();
@@ -840,16 +838,18 @@ function formatarRaio(m){
    ============================================================ */
 function toggleProspeccao(){
   prospeccaoAtiva = !prospeccaoAtiva;
-  const fab = document.getElementById('fab-prospect');
+  const btn = document.getElementById('prospeccao-toggle-btn');
   const dot = document.getElementById('live-dot');
   const statusText = document.getElementById('status-text');
   if(prospeccaoAtiva){
-    fab.classList.add('on'); fab.textContent = '■';
+    btn.className = 'btn btn-danger';
+    btn.textContent = '■ Pausar prospecção';
     dot.classList.add('live'); statusText.textContent = 'prospectando em rota';
     if(posMarker) buscarEmpresasProximas(posMarker.getPosition().toJSON(), raioBusca);
     mostrarToast('Prospecção ativada — raio de ' + formatarRaio(raioBusca));
   } else {
-    fab.classList.remove('on'); fab.textContent = '▶';
+    btn.className = 'btn btn-accent';
+    btn.textContent = '▶ Iniciar prospecção em rota';
     dot.classList.remove('live'); statusText.textContent = 'parado';
     mostrarToast('Prospecção pausada');
   }
@@ -858,8 +858,7 @@ function toggleProspeccao(){
 function cicleRadius(){
   const idx = RAIOS.indexOf(raioBusca);
   raioBusca = RAIOS[(idx + 1) % RAIOS.length];
-  document.getElementById('fab-radius').textContent = formatarRaio(raioBusca);
-  document.getElementById('hint-radius').textContent = formatarRaio(raioBusca);
+  document.getElementById('prospeccao-radius-btn').textContent = formatarRaio(raioBusca);
 }
 
 /* busca genérica: usada tanto pela prospecção em rota quanto pela busca manual */
@@ -943,10 +942,9 @@ function buscarManual(){
   const termo = termoCustom || nicheSelecionado;
   if(!termo){ mostrarToast('Escolha um nicho ou digite um termo de busca'); return; }
 
-  const raio = Number(document.getElementById('prospeccao-raio').value);
   const centro = map.getCenter().toJSON();
-  mostrarToast('Buscando "' + termo + '" em ' + formatarRaio(raio) + '...');
-  buscarEmpresasProximas(centro, raio, termo);
+  mostrarToast('Buscando "' + termo + '" em ' + formatarRaio(raioBusca) + '...');
+  buscarEmpresasProximas(centro, raioBusca, termo);
 }
 
 /* ============================================================
@@ -1011,6 +1009,23 @@ function renderAgendaSemanalNoMapa(){
     marker.addListener('click', () => abrirModalVisita(i));
     agendaSemanalMarkers.push(marker);
   });
+}
+
+function limparAgendaSemanal(){
+  if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
+  if(!confirm('Apagar todos os clientes da agenda desta semana? Isso não afeta o histórico de visitas nem a base de clientes — só limpa a lista da semana na planilha.')) return;
+
+  fetch(CONFIG.backendUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action:'limparAgendaSemanal', payload:{} })
+  }).then(r => r.json()).then(resp => {
+    if(!resp.ok){ mostrarToast('Erro: ' + resp.erro); return; }
+    agendaSemanalCache = [];
+    renderAgendaSemanalLista();
+    renderAgendaSemanalNoMapa();
+    mostrarToast('Agenda da semana limpa ✓');
+  }).catch(() => mostrarToast('Sem conexão — tente de novo em instantes'));
 }
 
 function trocarAbaAgenda(aba){
@@ -1086,8 +1101,12 @@ function adicionarAgendaItemNaRota(){
    agenda planejada). É o "final do dia" rápido, sem precisar
    navegar por menus.
    ============================================================ */
+let clienteManualCoord = null; // { lat, lng } marcado via GPS ou toque no mapa
+
 function abrirModalCampo(){
   trocarAbaCampo('cliente');
+  clienteManualCoord = null;
+  atualizarCoordStatusCliente();
   document.getElementById('modal-campo-overlay').style.display = 'flex';
   history.pushState({ prospectorNav:'modal-campo' }, '');
 }
@@ -1106,13 +1125,49 @@ function trocarAbaCampo(aba){
   document.getElementById('mc-tab-btn-visita').className = 'btn ' + (aba === 'visita' ? 'btn-teal' : 'btn-ghost');
 }
 
+function atualizarCoordStatusCliente(){
+  const el = document.getElementById('nc-coord-status');
+  if(clienteManualCoord){
+    el.textContent = '📍 Marcada: ' + clienteManualCoord.lat.toFixed(5) + ', ' + clienteManualCoord.lng.toFixed(5);
+    el.style.color = 'var(--teal)';
+  } else {
+    el.textContent = 'Nenhuma coordenada marcada ainda';
+    el.style.color = 'var(--muted)';
+  }
+}
+
+function usarMinhaLocalizacaoNoCliente(){
+  if(!posMarker){ mostrarToast('Localização atual ainda não disponível'); return; }
+  const pos = posMarker.getPosition();
+  clienteManualCoord = { lat: pos.lat(), lng: pos.lng() };
+  atualizarCoordStatusCliente();
+  mostrarToast('Localização atual marcada');
+}
+
+function ativarMarcarNoMapa(){
+  if(!map){ mostrarToast('Aguarde o mapa carregar'); return; }
+  document.getElementById('modal-campo-overlay').style.display = 'none';
+  mostrarToast('Toque no mapa no local do cliente...');
+  const listener = map.addListener('click', (ev) => {
+    google.maps.event.removeListener(listener);
+    clienteManualCoord = { lat: ev.latLng.lat(), lng: ev.latLng.lng() };
+    atualizarCoordStatusCliente();
+    document.getElementById('modal-campo-overlay').style.display = 'flex';
+    mostrarToast('Coordenada marcada no mapa');
+  });
+}
+
 function salvarClienteManual(){
   const nome = document.getElementById('nc-nome').value.trim();
-  if(!nome){ mostrarToast('Informe o nome do cliente'); return; }
+  const cnpj = document.getElementById('nc-cnpj').value.trim();
+  if(!nome && !cnpj){ mostrarToast('Informe ao menos o nome ou o CNPJ'); return; }
   if(!CONFIG || !CONFIG.backendUrl){ mostrarToast('Configure a URL do backend primeiro'); return; }
 
   const payload = {
     razao_social: nome,
+    cnpj: cnpj,
+    ramo: document.getElementById('nc-ramo').value.trim(),
+    contato: document.getElementById('nc-contato').value.trim(),
     telefone: document.getElementById('nc-telefone').value.trim(),
     logradouro: document.getElementById('nc-endereco').value.trim(),
     municipio: '',
@@ -1121,31 +1176,32 @@ function salvarClienteManual(){
     vendedor: CONFIG.vendedor
   };
 
-  let posicaoAtual = null;
-  if(posMarker){
-    posicaoAtual = posMarker.getPosition().toJSON();
-    payload.latitude = posicaoAtual.lat;
-    payload.longitude = posicaoAtual.lng;
-  }
+  const coord = clienteManualCoord || (posMarker ? posMarker.getPosition().toJSON() : null);
+  if(coord){ payload.latitude = coord.lat; payload.longitude = coord.lng; }
 
   enviarParaBackend('addCliente', payload);
   mostrarToast('Cliente cadastrado! Já sincronizando com a planilha.');
   document.getElementById('nc-nome').value = '';
+  document.getElementById('nc-cnpj').value = '';
+  document.getElementById('nc-ramo').value = '';
+  document.getElementById('nc-contato').value = '';
   document.getElementById('nc-telefone').value = '';
   document.getElementById('nc-endereco').value = '';
   document.getElementById('nc-obs').value = '';
+  clienteManualCoord = null;
+  atualizarCoordStatusCliente();
 
   if(history.state && history.state.prospectorNav === 'modal-campo'){ history.back(); }
   else { fecharModalCampoInterno(); }
 
   // feedback visual imediato no mapa
-  if(map && posicaoAtual){
+  if(map && coord){
     const marker = new google.maps.Marker({
-      position: posicaoAtual, map, title: nome,
+      position: coord, map, title: nome || cnpj,
       icon: { path: google.maps.SymbolPath.CIRCLE, scale:7, fillColor:'#2BD4C4', fillOpacity:0.95, strokeColor:'#0B0C0E', strokeWeight:1 }
     });
     marker.addListener('click', () => {
-      const info = new google.maps.InfoWindow({ content: '<div style="color:#111;font-weight:600;">' + escapeHtml(nome) + '</div>' });
+      const info = new google.maps.InfoWindow({ content: '<div style="color:#111;font-weight:600;">' + escapeHtml(nome || cnpj) + '</div>' });
       info.open(map, marker);
     });
     agendaSemanalMarkers.push(marker);
@@ -1224,7 +1280,6 @@ function calcularRota(){
 
     if(!restaurandoRota){
       mostrarToast('Rota otimizada: ' + enderecos.length + ' paradas');
-      fecharPainel();
     }
     restaurandoRota = false;
   });
@@ -1415,7 +1470,7 @@ function persistirLeadsCache(){
 function atualizarHud(){
   document.getElementById('hud-leads').textContent = leadsCache.length;
   const novos = leadsCache.filter(l => l.status === 'novo').length;
-  const badge = document.getElementById('drawer-badge-leads');
+  const badge = document.getElementById('tabbtn-prospeccao-badge');
   badge.style.display = novos > 0 ? 'inline-block' : 'none';
   badge.textContent = novos;
 }
@@ -1730,9 +1785,9 @@ function processarComandoVoz(textoOriginal){
     mostrarToast('🎤 Registro de visita aberto' + (nome ? ': ' + nome : ''));
     return;
   }
-  if(bateCom('abrir agenda','minha agenda','ver agenda')){ abrirPainel('agenda'); return; }
-  if(bateCom('abrir leads','meus leads','ver leads')){ abrirPainel('leads'); return; }
-  if(bateCom('abrir rota','ver rota','calcular rota')){ abrirPainel('rota'); return; }
+  if(bateCom('abrir agenda','minha agenda','ver agenda')){ trocarTab('agenda'); return; }
+  if(bateCom('abrir leads','meus leads','ver leads')){ trocarTab('prospeccao'); return; }
+  if(bateCom('abrir rota','ver rota','calcular rota')){ trocarTab('rota'); return; }
   if(bateCom('sincronizar','atualizar planilha')){ forcarSincronizacao(); return; }
 
   // Não bateu com nenhum comando — salva como anotação rápida, pra
