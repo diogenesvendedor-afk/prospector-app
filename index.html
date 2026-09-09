@@ -975,7 +975,7 @@ function renderAgendaSemanalLista(){
   let diaAtual = null;
   let html = '';
   agendaSemanalCache.forEach((item, i) => {
-    const dia = item.dia || 'Sem dia definido';
+    const dia = item.dia || item.data || 'Sem dia definido';
     if(dia !== diaAtual){
       html += `<div class="agenda-dia-header">${escapeHtml(dia)}</div>`;
       diaAtual = dia;
